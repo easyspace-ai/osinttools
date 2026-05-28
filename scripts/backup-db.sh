@@ -8,8 +8,8 @@ set -euo pipefail
 
 # ---- configurable ----
 PROJECT_DIR="${PROJECT_DIR:-/data/osinttools}"
-DB_PATH="${PROJECT_DIR}/backend/hana.db"
-BACKUP_DIR="${PROJECT_DIR}/backups"
+DB_PATH="${PROJECT_DIR}/hana.db"
+BACKUP_DIR="/data/backups"
 LOG_DIR="${PROJECT_DIR}/logs"
 KEEP_DAYS=7
 
