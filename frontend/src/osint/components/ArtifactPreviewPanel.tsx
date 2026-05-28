@@ -296,6 +296,7 @@ export default function ArtifactPreviewPanel({
     const objectUrl = URL.createObjectURL(file)
     localBlobUrlRef.current = objectUrl
     setLocalBlobUrl(objectUrl)
+    setMediaImageReady(false)
     chatPreviewLog('load_local', 'created blob URL for local attachment', {
       name: file.name,
       size: file.size,
@@ -890,6 +891,12 @@ export default function ArtifactPreviewPanel({
                 'max-w-full max-h-full object-contain shadow-lg rounded-lg transition-opacity',
                 mediaImageReady ? 'opacity-100' : 'opacity-0',
               )}
+              ref={(el) => {
+                if (el?.complete && el.naturalWidth > 0) {
+                  setMediaImageReady(true)
+                  setMediaError(null)
+                }
+              }}
               onLoad={() => {
                 setMediaImageReady(true)
                 setMediaError(null)
