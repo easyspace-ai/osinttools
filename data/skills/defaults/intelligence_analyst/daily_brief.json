@@ -1,0 +1,92 @@
+{
+  "key": "daily_brief",
+  "name": "每日简报",
+  "description": "自动生成指定领域的每日情报简报，汇总最新动态和关键信息。",
+  "icon": "Newspaper",
+  "form_schema": {
+    "fields": [
+      {
+        "name": "focus_areas",
+        "label": "关注领域",
+        "type": "multi_select",
+        "options": [
+          {
+            "label": "网络安全",
+            "value": "cyber"
+          },
+          {
+            "label": "地缘政治",
+            "value": "geo"
+          },
+          {
+            "label": "科技动态",
+            "value": "tech"
+          },
+          {
+            "label": "金融经济",
+            "value": "finance"
+          },
+          {
+            "label": "社会舆情",
+            "value": "social"
+          }
+        ],
+        "required": true,
+        "default": ["geo"]
+      },
+      {
+        "name": "regions",
+        "label": "关注地区",
+        "type": "multi_select",
+        "options": [
+          {
+            "label": "全球",
+            "value": "global"
+          },
+          {
+            "label": "亚太地区",
+            "value": "apac"
+          },
+          {
+            "label": "北美",
+            "value": "na"
+          },
+          {
+            "label": "欧洲",
+            "value": "eu"
+          },
+          {
+            "label": "中东",
+            "value": "me"
+          }
+        ],
+        "required": true,
+        "default": ["global"]
+      },
+      {
+        "name": "briefing_style",
+        "label": "简报风格",
+        "type": "select",
+        "options": [
+          {
+            "label": "Executive Summary（高管摘要）",
+            "value": "executive"
+          },
+          {
+            "label": "详细分析",
+            "value": "detailed"
+          },
+          {
+            "label": "技术简报",
+            "value": "technical"
+          }
+        ],
+        "required": true,
+        "default": "executive"
+      }
+    ]
+  },
+  "prompt_template": "你是一位专业的情报简报分析师。请生成以下领域的每日情报简报：\n\n## 关注领域\n{{focus_areas}}\n\n## 关注地区\n{{regions}}\n\n## 简报风格\n{{briefing_style}}\n\n请按以下结构输出简报：\n1. **今日概要**：一句话总结今日最重要的情报事件\n2. **关键动态**：按领域分类列出今日关键动态（每条包含：标题、简述、来源、重要性评级）\n3. **深度分析**：选择 1-2 个最重要的事件进行深度分析\n4. **趋势预警**：识别潜在的风险信号和趋势变化\n5. **明日关注**：列出明日需要关注的情报线索\n6. **情报来源清单**：今日简报引用的主要情报来源",
+  "is_enabled": true,
+  "sort_order": 4
+}
