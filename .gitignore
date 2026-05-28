@@ -66,3 +66,6 @@ backend/main
 
 node_modules/
 sessions/
+
+data/skills/custom
+data/skills/custom

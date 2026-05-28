@@ -25,6 +25,8 @@ import { OsintSessionRouteShell } from "./features/osint/OsintSessionRouteShell"
 import { useAuth } from "./contexts/AuthContext";
 import { fetchAuthConfig } from "./lib/authApi";
 import { DEFAULT_AUTH_HOME } from "./lib/defaultRoutes";
+import { RequireNavPermission } from "./components/auth/RequireNavPermission";
+import { NAV_PERMISSION_KEYS } from "./lib/navPermissions";
 
 function LoginRoute() {
   const navigate = useNavigate();
@@ -163,9 +165,30 @@ function AppShell() {
                   <Route path="/daily-selection" element={<DailySelectionPage />} />
                   <Route path="/expert-analysis" element={<ExpertAnalysisPage />} />
                   <Route path="/market/*" element={<MarketRouteLayout />} />
-                  <Route path="/polymarket/*" element={<PolymarketRouteLayout />} />
-                  <Route path="/x-stream" element={<XStreamRouteLayout />} />
-                  <Route path="/dashboard" element={<DashboardRouteLayout />} />
+                  <Route
+                    path="/polymarket/*"
+                    element={
+                      <RequireNavPermission permission={NAV_PERMISSION_KEYS.polymarket}>
+                        <PolymarketRouteLayout />
+                      </RequireNavPermission>
+                    }
+                  />
+                  <Route
+                    path="/x-stream"
+                    element={
+                      <RequireNavPermission permission={NAV_PERMISSION_KEYS.xstream}>
+                        <XStreamRouteLayout />
+                      </RequireNavPermission>
+                    }
+                  />
+                  <Route
+                    path="/dashboard"
+                    element={
+                      <RequireNavPermission permission={NAV_PERMISSION_KEYS.dashboard}>
+                        <DashboardRouteLayout />
+                      </RequireNavPermission>
+                    }
+                  />
                   <Route path="/ai-session/*" element={<OsintSessionRouteShell />} />
                   <Route path="/picker" element={<PickerRouteLayout />}>
                     <Route index element={<Navigate to="eod" replace />} />

@@ -7,6 +7,12 @@ import { useAppStore } from '@/osint/stores/apiStore'
 import { useToast } from '@/osint/components/ui/Feedback'
 import AIChatBoxNew, { type ChatMessage, type Attachment } from '@/osint/components/AIChatBoxNew'
 import { SkillFormModal } from '@/osint/components/intelligence/SkillFormModal'
+import {
+  orderSkillsForGroup,
+  resolveIntelligenceAnalystGroup,
+  type SkillGroupLite,
+} from '@/osint/lib/intelligenceSkillToolbar'
+import { intelligenceSkillApi } from '@/osint/services/api'
 import type { IntelligenceSkill } from '@/osint/types'
 import type { MessageStatus } from '@/osint/components/ai-elements'
 
@@ -54,6 +60,7 @@ export function PolymarketOsintChatPanel({ savedEventId, sessionId, eventTitle }
   const [showSkillModal, setShowSkillModal] = useState(false)
   const [skillInitialValues, setSkillInitialValues] = useState<Record<string, any> | undefined>(undefined)
   const [historyPhase, setHistoryPhase] = useState<'idle' | 'loading' | 'done' | 'error'>('idle')
+  const [analystGroup, setAnalystGroup] = useState<SkillGroupLite | null>(null)
 
   const initRunIdRef = useRef(0)
   const prevSessionIdRef = useRef<string | undefined>(undefined)
@@ -108,7 +115,19 @@ export function PolymarketOsintChatPanel({ savedEventId, sessionId, eventTitle }
   useEffect(() => {
     if (!syncReady) return
     void fetchIntelligenceSkills()
+    void intelligenceSkillApi
+      .listGroups()
+      .then((groups) => setAnalystGroup(resolveIntelligenceAnalystGroup(groups)))
+      .catch(() =>
+        setAnalystGroup(resolveIntelligenceAnalystGroup([])),
+      )
   }, [syncReady, fetchIntelligenceSkills])
+
+  useEffect(() => {
+    if (sessionId) {
+      useAppStore.setState({ error: null })
+    }
+  }, [sessionId])
 
   useEffect(() => {
     const runId = ++initRunIdRef.current
@@ -210,13 +229,15 @@ export function PolymarketOsintChatPanel({ savedEventId, sessionId, eventTitle }
     }
   }
 
+  const toolbarSkills = useMemo(
+    () => orderSkillsForGroup(intelligenceSkills, analystGroup),
+    [intelligenceSkills, analystGroup],
+  )
+
   const skillToolbar = useMemo(
     () => (
       <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide pb-0.5">
-        {intelligenceSkills
-          .filter((s) => s.is_enabled)
-          .sort((a, b) => a.sort_order - b.sort_order)
-          .map((skill) => (
+        {toolbarSkills.map((skill) => (
             <button
               key={skill.id}
               type="button"
@@ -237,7 +258,7 @@ export function PolymarketOsintChatPanel({ savedEventId, sessionId, eventTitle }
           ))}
       </div>
     ),
-    [intelligenceSkills, isStreaming, handleSkillClick],
+    [toolbarSkills, isStreaming, handleSkillClick],
   )
 
   const chatMessages: ChatMessage[] = messages.map((m) => ({

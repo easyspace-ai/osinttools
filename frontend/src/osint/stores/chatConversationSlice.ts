@@ -2,6 +2,7 @@
  * 会话消息、WebSocket 连接等与聊天相关的 store 切片（从 apiStore 拆出以减轻单文件体积）。
  */
 import { fetchSavedPolymarketChatHistory } from '@/lib/polymarketApi'
+import { isSessionNotFoundError } from '@/osint/lib/sessionErrors'
 import { SessionWebSocket } from '@/osint/services/ws'
 import { sessionApi } from '@/osint/services/api'
 import * as historySync from './api/historySync'
@@ -991,7 +992,8 @@ export function createChatConversationSlice(set: (partial: any) => void, get: ()
               error: error?.message || '加载消息失败，请稍后重试',
               loading: false,
             })
-            if (!options?.__retryAfterError) {
+            const sessionMissing = isSessionNotFoundError(error)
+            if (!options?.__retryAfterError && !sessionMissing) {
               window.setTimeout(() => {
                 if (get().activeMessageSessionId !== sessionId) return
                 void get().fetchMessagesBySession(sessionId, {

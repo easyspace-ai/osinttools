@@ -22,6 +22,7 @@ import {
 import { PolymarketPriceChart } from '@/features/polymarket/PolymarketPriceChart'
 import { PolymarketRichText } from '@/features/polymarket/PolymarketRichText'
 import { PolymarketOsintChatPanel } from '@/features/polymarket/PolymarketOsintChatPanel'
+import { ensurePolymarketEventSession } from '@/features/polymarket/ensurePolymarketSession'
 import { usePolymarketClobWs } from '@/features/polymarket/usePolymarketClobWs'
 import { DialogProvider } from '@/osint/components/ui/Dialog'
 import { ToastProvider } from '@/osint/components/ui/Feedback'
@@ -79,36 +80,31 @@ export function PolymarketRouteLayout() {
     setResolvePopupOpen(true)
   }, [])
 
-  const handleSelect = useCallback(async (ev: SavedPolymarketEvent) => {
-    if (ev.aiSessionId) {
-      setSelected(ev)
-      return
-    }
-    // Event has no session yet — create one automatically
-    setCreatingSession(true)
-    try {
-      const session = await useAppStore.getState().createSession(
-        (ev.title ?? '').substring(0, 30) || '新对话',
-        ev.id,
-      )
-      const updatedSelected: SavedPolymarketEvent = {
-        ...ev,
-        aiSessionId: session.id,
-      }
-      // Update the saved event list so the new aiSessionId is reflected
-      setSaved((prev) =>
-        prev.map((s) => (s.id === ev.id ? { ...s, aiSessionId: session.id } : s)),
-      )
-      setSelected(updatedSelected)
-    } catch (e) {
-      console.error('Failed to create session:', e)
-      const msg = e instanceof Error ? e.message : '创建 AI 会话失败'
-      window.alert(`无法创建 AI 会话：${msg}\n请确认已登录后重试。`)
-      setSelected(ev)
-    } finally {
-      setCreatingSession(false)
-    }
+  const bindSessionToEvent = useCallback((ev: SavedPolymarketEvent, sessionId: string) => {
+    const updated: SavedPolymarketEvent = { ...ev, aiSessionId: sessionId }
+    setSaved((prev) => prev.map((s) => (s.id === ev.id ? { ...s, aiSessionId: sessionId } : s)))
+    setSelected(updated)
+    return updated
   }, [])
+
+  const handleSelect = useCallback(
+    async (ev: SavedPolymarketEvent) => {
+      setCreatingSession(true)
+      useAppStore.setState({ error: null })
+      try {
+        const sessionId = await ensurePolymarketEventSession(ev)
+        bindSessionToEvent(ev, sessionId)
+      } catch (e) {
+        console.error('Failed to ensure polymarket session:', e)
+        const msg = e instanceof Error ? e.message : '创建 AI 会话失败'
+        window.alert(`无法创建 AI 会话：${msg}\n请确认已登录后重试。`)
+        setSelected(ev)
+      } finally {
+        setCreatingSession(false)
+      }
+    },
+    [bindSessionToEvent],
+  )
 
   const reloadSaved = useCallback(async () => {
     setListLoading(true)
@@ -146,7 +142,7 @@ export function PolymarketRouteLayout() {
           background: resolved.background ?? '',
         })
         await reloadSaved()
-        setSelected(row)
+        await handleSelect(row)
         setResolvePopupOpen(false)
       } catch (e: any) {
         setResolveError(e instanceof Error ? e.message : '保存失败')
@@ -154,7 +150,7 @@ export function PolymarketRouteLayout() {
         setResolvingClient(false)
       }
     },
-    [savePolymarketEvent, reloadSaved],
+    [reloadSaved, handleSelect],
   )
 
   useEffect(() => {
@@ -244,13 +240,13 @@ export function PolymarketRouteLayout() {
       setModalOpen(false)
       setResolved(null)
       setSearchDraft('')
-      setSelected(row)
+      await handleSelect(row)
     } catch (e) {
       window.alert(e instanceof Error ? e.message : '保存失败')
     } finally {
       setSaving(false)
     }
-  }, [resolved, reloadSaved])
+  }, [resolved, reloadSaved, handleSelect])
 
   const onRemove = useCallback(
     async (ev: SavedPolymarketEvent) => {
@@ -504,10 +500,10 @@ const leftPanel = (
               <div className="flex h-full items-center justify-center p-4 text-center text-[12px] text-slate-500">
                 选择左侧已保存的事件
               </div>
-            ) : creatingSession && !normalizedSelected?.aiSessionId ? (
+            ) : creatingSession ? (
               <div className="flex h-full flex-col items-center justify-center gap-2 p-4 text-center text-[12px] text-slate-500">
                 <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
-                <p>正在创建 AI 会话…</p>
+                <p>正在准备 AI 会话…</p>
               </div>
             ) : (
               <PolymarketOsintChatPanel

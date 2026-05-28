@@ -195,8 +195,8 @@ func (h *PolymarketHandler) SavePOST(c *gin.Context) {
 		return
 	}
 
-	// If user is logged in, create an AI project and session
-	if user, ok := GetCurrentUser(c); ok && user != nil {
+	// If user is logged in and this event has no session yet, create an AI project and session
+	if user, ok := GetCurrentUser(c); ok && user != nil && strings.TrimSpace(saved.AISessionID) == "" {
 		projectID := uuid.New().String()
 		now := time.Now().UTC()
 		project := &persistence.ProjectModel{

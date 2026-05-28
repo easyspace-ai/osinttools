@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { isSessionNotFoundError } from '@/osint/lib/sessionErrors'
 import { sessionApi, skillApi, promptTemplateApi, intelligenceSkillApi, projectApi } from '@/osint/services/api'
 import type { SessionWebSocket } from '@/osint/services/ws'
 import {
@@ -190,6 +191,11 @@ fetchResources: async (sessionId: string, type?: string) => {
         const allResources = await sessionApi.getSessionResources(sessionId, { type })
         set({ resources: allResources, loading: false })
       } catch (error: any) {
+        if (isSessionNotFoundError(error)) {
+          console.warn(`[fetchResources] session missing, skipping: ${sessionId}`)
+          set({ resources: [], loading: false })
+          return
+        }
         set({ error: error.message, loading: false })
       }
     },
