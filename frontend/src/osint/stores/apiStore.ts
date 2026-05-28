@@ -92,8 +92,12 @@ interface AppState {
     /** 可选：与内部 controller 并行中止（例如父组件卸载） */
     externalAbortSignal?: AbortSignal
   ) => Promise<void>
-  /** 通过 WebSocket 发送消息 */
-  sendMessageWS: (sessionId: string, content: string, attachments?: string[]) => void
+  /** 通过 WebSocket 发送消息（attachments 可为 id 或含 name 的 ref，后者用于乐观 UI 预览） */
+  sendMessageWS: (
+    sessionId: string,
+    content: string,
+    attachments?: string[] | Array<{ id: string; name?: string; type?: string }>,
+  ) => void
   /** 建立 WebSocket 连接 */
   connectWebSocket: (sessionId: string, polymarketSavedId?: string) => void
   /** 断开 WebSocket 连接 */
@@ -250,10 +254,24 @@ deleteResource: async (sessionId: string, resourceId: string) => {
 uploadResource: async (sessionId: string, file: File) => {
      try {
        set({ loading: true, error: null })
+       console.log('[ChatUpload] upload_progress: calling sessionApi.uploadResourceDirect', {
+         sessionId,
+         fileName: file.name,
+       })
        const resource = await sessionApi.uploadResourceDirect(sessionId, file)
-       set({ loading: false })
+       set((state) => ({
+         loading: false,
+         resources: resource?.id
+           ? [resource, ...state.resources.filter((r) => r.id !== resource.id)]
+           : state.resources,
+       }))
        return resource
      } catch (error: any) {
+       console.error('[ChatUpload] upload_failure: apiStore.uploadResource', {
+         sessionId,
+         fileName: file.name,
+         message: error?.message,
+       })
        set({ error: error.message, loading: false })
        throw error
      }

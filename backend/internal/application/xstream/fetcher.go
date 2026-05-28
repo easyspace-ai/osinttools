@@ -150,6 +150,13 @@ func (f *Fetcher) FetchOnce(ctx context.Context) error {
 	return nil
 }
 
+// InitEnabledFromEnv reads XSTREAM_INIT_ENABLED (default false).
+// When false, the sync worker skips automatic full history backfill.
+// Use POST /xstream/init to trigger manual backfill when needed.
+func InitEnabledFromEnv() bool {
+	return os.Getenv("XSTREAM_INIT_ENABLED") == "true" || os.Getenv("XSTREAM_INIT_ENABLED") == "1"
+}
+
 // IntervalFromEnv reads XSTREAM_FETCH_INTERVAL (duration or minutes).
 func IntervalFromEnv() time.Duration {
 	intervalStr := os.Getenv("XSTREAM_FETCH_INTERVAL")

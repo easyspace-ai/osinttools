@@ -37,6 +37,7 @@ type ResourceRepository interface {
 	Create(r *Resource) error
 	GetByID(projectID, resourceID string) (*Resource, error)
 	GetByResourceID(resourceID string) (*Resource, error)
+	GetBySDKFileID(fileID string) (*Resource, error)
 	ListByProjectID(projectID string, resourceType *string) ([]*Resource, error)
 	ListBySessionID(sessionID string) ([]*Resource, error)
 	Update(r *Resource) error

@@ -40,11 +40,12 @@ async function request<T>(
 
   const token = getAuthToken()
   const authHeaders = token ? { Authorization: `Bearer ${token}` } : {}
+  const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData
 
   const response = await fetch(url, {
     ...options,
     headers: {
-      'Content-Type': 'application/json',
+      ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
       'Cache-Control': 'no-cache, no-store, must-revalidate',
       'Pragma': 'no-cache',
       'Expires': '0',
@@ -158,20 +159,48 @@ updateDirect: (sessionId: string, data: { title: string }) =>
 
   // 上传资源（基于 sessionId）
   uploadResourceDirect: (sessionId: string, file: File) => {
+    const endpoint = `/sessions/${encodeURIComponent(sessionId)}/upload`
+    const url = `${API_CONFIG.baseUrl}${endpoint}?t=${Date.now()}`
     const formData = new FormData()
     formData.append('file', file)
-    const headers: Record<string, string> = {}
     const token = getAuthToken()
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`
-    } else {
-      console.warn('[uploadResourceDirect] missing auth token, upload likely returns 401')
+    if (!token) {
+      console.warn('[ChatUpload] upload_start: missing auth token, upload likely returns 401', {
+        sessionId,
+        fileName: file.name,
+      })
     }
-    return request<any>(`/sessions/${encodeURIComponent(sessionId)}/upload`, {
+    console.log('[ChatUpload] upload_start: POST backend → AI SDK (third-party storage)', {
       method: 'POST',
-      headers,
-      body: formData,
+      url,
+      sessionId,
+      fileName: file.name,
+      fileSize: file.size,
+      mimeType: file.type || '(unknown)',
     })
+    return request<any>(endpoint, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    }).then(
+      (resource) => {
+        console.log('[ChatUpload] upload_success: resource persisted in DB, file in cloud SDK', {
+          resourceId: resource?.id,
+          url: resource?.url,
+          name: resource?.name,
+        })
+        return resource
+      },
+      (err: unknown) => {
+        const message = err instanceof Error ? err.message : String(err)
+        console.error('[ChatUpload] upload_failure: backend or AI SDK rejected upload', {
+          sessionId,
+          fileName: file.name,
+          message,
+        })
+        throw err
+      },
+    )
   },
 
   deleteMessageDirect: (sessionId: string, messageId: string) =>

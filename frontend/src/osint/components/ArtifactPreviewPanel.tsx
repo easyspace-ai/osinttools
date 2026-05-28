@@ -5,6 +5,16 @@ import { MarkdownRenderer } from '@/osint/components/MarkdownRenderer'
 import { useToast } from '@/osint/components/ui/Feedback'
 import { API_ENDPOINTS, API_CONFIG } from '@/osint/config/api'
 import { useAuthStore } from '@/osint/stores/authStore'
+import { chatPreviewLog, isLocalPreviewId } from '@/osint/lib/chatPreviewLog'
+import {
+  loadPreviewBlob,
+  previewCacheAliases,
+  getCachedPreviewAny,
+  setCachedPreview,
+  isPreviewLoadFailed,
+  clearPreviewLoadFailure,
+  invalidateCachedPreviewAndLoadFromServer,
+} from '@/osint/lib/chatPreviewCache'
 function useDragging() {
   const [isDragging, setIsDragging] = useState(false)
   const [offset, setOffset] = useState({ x: 0, y: 0 })
@@ -72,8 +82,8 @@ const detectPreviewType = (filename?: string, resourceType?: string): FileTypeIn
   if (['html', 'htm'].includes(ext)) {
     return { type: 'html', ext, mimeType: 'text/html' }
   }
-  if (ext === 'md') {
-    return { type: 'markdown', ext, mimeType: 'text/markdown' }
+  if (ext === 'md' || ext === 'txt') {
+    return { type: 'markdown', ext, mimeType: ext === 'txt' ? 'text/plain' : 'text/markdown' }
   }
   if (['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp', 'ico'].includes(ext)) {
     const mimeMap: Record<string, string> = {
@@ -157,6 +167,8 @@ export interface ViewingResource {
   type?: string
   content?: string
   url?: string | null
+  /** 浏览器内暂存的本地附件（发送前预览） */
+  localFile?: File
 }
 
 interface ArtifactPreviewPanelProps {
@@ -177,10 +189,22 @@ export default function ArtifactPreviewPanel({
   isPopupMode = false,
 }: ArtifactPreviewPanelProps) {
   const { addToast } = useToast()
-  const fileType = useMemo(
-    () => detectPreviewType(viewingResource.name, viewingResource.type),
-    [viewingResource.name, viewingResource.type]
+  const isLocalPreview = useMemo(
+    () => Boolean(viewingResource.localFile) || isLocalPreviewId(viewingResource.id),
+    [viewingResource.id, viewingResource.localFile],
   )
+
+  const fileType = useMemo(() => {
+    const info = detectPreviewType(viewingResource.name, viewingResource.type)
+    chatPreviewLog('detect_type', 'resolved preview renderer', {
+      id: viewingResource.id,
+      name: viewingResource.name,
+      type: info.type,
+      ext: info.ext,
+      isLocal: isLocalPreview,
+    })
+    return info
+  }, [viewingResource.name, viewingResource.type, viewingResource.id, isLocalPreview])
 
   const { isDragging, offset, handleMouseDown } = useDragging()
 
@@ -202,43 +226,331 @@ export default function ArtifactPreviewPanel({
     setPdfBlobUrl(null)
   }, [])
 
+  const [localBlobUrl, setLocalBlobUrl] = useState<string | null>(null)
+  const localBlobUrlRef = useRef<string | null>(null)
+
+  const [mediaBlobUrl, setMediaBlobUrl] = useState<string | null>(null)
+  const [mediaLoading, setMediaLoading] = useState(false)
+  const [mediaImageReady, setMediaImageReady] = useState(false)
+  const [mediaError, setMediaError] = useState<string | null>(null)
+  const mediaObjectUrlRef = useRef<string | null>(null)
+  const mediaResolvedRef = useRef<{ id: string; status: 'ok' | 'error' } | null>(null)
+  /** One automatic server refetch per resource after stale cache render failure. */
+  const mediaDisplayRetryRef = useRef<string | null>(null)
+  const mediaLoadTokenRef = useRef(0)
+  const IMAGE_DECODE_TIMEOUT_MS = 15_000
+
+  const revokeMediaObjectUrl = useCallback(() => {
+    if (mediaObjectUrlRef.current) {
+      URL.revokeObjectURL(mediaObjectUrlRef.current)
+      mediaObjectUrlRef.current = null
+    }
+    setMediaBlobUrl(null)
+  }, [])
+
+  const revokeLocalBlobUrl = useCallback(() => {
+    if (localBlobUrlRef.current) {
+      URL.revokeObjectURL(localBlobUrlRef.current)
+      localBlobUrlRef.current = null
+    }
+    setLocalBlobUrl(null)
+  }, [])
+
+  const needsBlobPreview =
+    fileType.type === 'image' || fileType.type === 'audio' || fileType.type === 'video'
+
   const previewUrl = useMemo(() => {
+    if (isLocalPreview) return localBlobUrl || ''
+    if (mediaBlobUrl) return mediaBlobUrl
+    // Blob types must not fall back to /preview URL (avoids 404 + retry loops while cache loads)
+    if (needsBlobPreview) return ''
     const token = getAuthToken()
     const baseUrl = buildArtifactUrl(viewingResource.id, 'preview')
     return token ? `${baseUrl}?token=${encodeURIComponent(token)}` : baseUrl
-  }, [viewingResource.id])
+  }, [viewingResource.id, isLocalPreview, localBlobUrl, mediaBlobUrl, needsBlobPreview])
 
   const downloadUrl = useMemo(() => {
+    if (isLocalPreview) return localBlobUrl || ''
     const token = getAuthToken()
     const baseUrl = buildArtifactUrl(viewingResource.id, 'download')
     return token ? `${baseUrl}?token=${encodeURIComponent(token)}` : baseUrl
-  }, [viewingResource.id])
-
-  const handleDownload = useCallback(() => {
-    window.open(downloadUrl, '_blank')
-    addToast('success', '下载已开始')
-  }, [downloadUrl, addToast])
+  }, [viewingResource.id, isLocalPreview, localBlobUrl])
 
   useEffect(() => {
-    if (fileType.type !== 'pdf') {
-      revokePdfObjectUrl()
-      setPdfLoading(false)
-      setPdfError(null)
+    chatPreviewLog('open', 'preview panel mounted', {
+      id: viewingResource.id,
+      name: viewingResource.name,
+      isLocal: isLocalPreview,
+      hasInlineContent: Boolean(viewingResource.content?.trim()),
+      hasLocalFile: Boolean(viewingResource.localFile),
+    })
+  }, [viewingResource.id, viewingResource.name, viewingResource.content, viewingResource.localFile, isLocalPreview])
+
+  useEffect(() => {
+    const file = viewingResource.localFile
+    if (!file) {
+      revokeLocalBlobUrl()
       return
     }
+    revokeLocalBlobUrl()
+    const objectUrl = URL.createObjectURL(file)
+    localBlobUrlRef.current = objectUrl
+    setLocalBlobUrl(objectUrl)
+    chatPreviewLog('load_local', 'created blob URL for local attachment', {
+      name: file.name,
+      size: file.size,
+      mimeType: file.type || '(unknown)',
+    })
+    return () => revokeLocalBlobUrl()
+  }, [viewingResource.localFile, revokeLocalBlobUrl])
+
+  const handleMediaDisplayError = useCallback(async () => {
+    const resourceId = viewingResource.id
+    const resourceName = viewingResource.name
+    const resourceUrl = viewingResource.url
+
+    if (mediaResolvedRef.current?.id === resourceId && mediaResolvedRef.current.status === 'error') {
+      return
+    }
+
+    const ids = previewCacheAliases(resourceId, resourceUrl)
+
+    if (mediaDisplayRetryRef.current !== resourceId) {
+      mediaDisplayRetryRef.current = resourceId
+      revokeMediaObjectUrl()
+      setMediaError(null)
+      setMediaLoading(true)
+      chatPreviewLog('load_error', 'blob URL failed to render (stale cache or revoked)', {
+        resourceId,
+      }, 'warn')
+      try {
+        const { objectUrl } = await invalidateCachedPreviewAndLoadFromServer({
+          resourceId,
+          name: resourceName,
+          cacheIds: ids,
+          kind: 'download',
+          accept:
+            fileType.type === 'image'
+              ? 'image/*,application/octet-stream,*/*'
+              : fileType.type === 'audio'
+                ? 'audio/*,application/octet-stream,*/*'
+                : 'video/*,application/octet-stream,*/*',
+        })
+        if (mediaObjectUrlRef.current) {
+          URL.revokeObjectURL(mediaObjectUrlRef.current)
+        }
+        mediaObjectUrlRef.current = objectUrl
+        setMediaBlobUrl(objectUrl)
+        setMediaImageReady(false)
+        mediaResolvedRef.current = { id: resourceId, status: 'ok' }
+        mediaDisplayRetryRef.current = null
+        setMediaLoading(false)
+        return
+      } catch (err: unknown) {
+        chatPreviewLog(
+          'load_error',
+          err instanceof Error ? err.message : 'display retry failed',
+          { resourceId },
+          'error',
+        )
+      } finally {
+        setMediaLoading(false)
+      }
+    }
+
+    mediaResolvedRef.current = { id: resourceId, status: 'error' }
+    revokeMediaObjectUrl()
+    setMediaError('预览无法显示，请下载或关闭后重试')
+    chatPreviewLog('load_error', 'blob URL failed to render after download retry', {
+      resourceId,
+    }, 'error')
+  }, [
+    viewingResource.id,
+    viewingResource.url,
+    viewingResource.name,
+    fileType.type,
+    revokeMediaObjectUrl,
+  ])
+
+  // Cache-first blob load for image / audio / video (server resources)
+  useEffect(() => {
+    if (!needsBlobPreview || isLocalPreview) {
+      mediaResolvedRef.current = null
+      mediaDisplayRetryRef.current = null
+      revokeMediaObjectUrl()
+      setMediaLoading(false)
+      setMediaError(null)
+      return
+    }
+
+    const resourceId = viewingResource.id
+    const resourceName = viewingResource.name
+    const resourceUrl = viewingResource.url
+    const mediaKind = fileType.type
+
+    if (
+      mediaResolvedRef.current?.id === resourceId &&
+      mediaResolvedRef.current.status === 'error'
+    ) {
+      setMediaError('预览无法显示，请下载或关闭后重试')
+      setMediaLoading(false)
+      return
+    }
+
     let cancelled = false
-    let attempt = 0
-    const maxAttempts = 4
-    const baseDelay = 1000
+    const ac = new AbortController()
+    const loadToken = ++mediaLoadTokenRef.current
+
+    if (isPreviewLoadFailed(resourceId)) {
+      revokeMediaObjectUrl()
+      setMediaError('预览加载失败，请关闭后重试')
+      setMediaLoading(false)
+      mediaResolvedRef.current = { id: resourceId, status: 'error' }
+      return () => {
+        cancelled = true
+        ac.abort()
+      }
+    }
+
+    clearPreviewLoadFailure(resourceId)
+    mediaDisplayRetryRef.current = null
+    setMediaError(null)
+    setMediaImageReady(false)
+    setMediaLoading(true)
+
+    const ids = previewCacheAliases(resourceId, resourceUrl)
+
+    void loadPreviewBlob({
+      resourceId,
+      name: resourceName,
+      cacheIds: ids,
+      kind: 'download',
+      signal: ac.signal,
+      maxAttempts: 3,
+      accept:
+        mediaKind === 'image'
+          ? 'image/*,application/octet-stream,*/*'
+          : mediaKind === 'audio'
+            ? 'audio/*,application/octet-stream,*/*'
+            : 'video/*,application/octet-stream,*/*',
+    })
+      .then(({ objectUrl }) => {
+        if (cancelled) {
+          URL.revokeObjectURL(objectUrl)
+          return
+        }
+        const prev = mediaObjectUrlRef.current
+        mediaObjectUrlRef.current = objectUrl
+        setMediaBlobUrl(objectUrl)
+        setMediaImageReady(false)
+        if (prev && prev !== objectUrl) {
+          URL.revokeObjectURL(prev)
+        }
+        mediaResolvedRef.current = { id: resourceId, status: 'ok' }
+      })
+      .catch((err: unknown) => {
+        if (cancelled || (err instanceof DOMException && err.name === 'AbortError')) return
+        mediaResolvedRef.current = { id: resourceId, status: 'error' }
+        setMediaError(err instanceof Error ? err.message : '加载失败')
+      })
+      .finally(() => {
+        if (mediaLoadTokenRef.current !== loadToken) return
+        setMediaLoading(false)
+        if (mediaKind !== 'image') {
+          setMediaImageReady(true)
+        }
+      })
+
+    return () => {
+      cancelled = true
+      ac.abort()
+    }
+  }, [needsBlobPreview, fileType.type, isLocalPreview, viewingResource.id, viewingResource.url, viewingResource.name, revokeMediaObjectUrl])
+
+  // If blob URL is set but <img> never fires onLoad (broken bytes / revoked URL), stop spinning.
+  useEffect(() => {
+    if (fileType.type !== 'image' || isLocalPreview || !mediaBlobUrl || mediaImageReady || mediaError) {
+      return
+    }
+    const resourceId = viewingResource.id
+    const timer = window.setTimeout(() => {
+      if (mediaImageReady) return
+      chatPreviewLog('load_timeout', 'image decode timed out after blob URL set', {
+        resourceId,
+        timeoutMs: IMAGE_DECODE_TIMEOUT_MS,
+      }, 'warn')
+      setMediaError('图片加载超时，请下载后查看')
+      setMediaImageReady(true)
+    }, IMAGE_DECODE_TIMEOUT_MS)
+    return () => window.clearTimeout(timer)
+  }, [
+    fileType.type,
+    isLocalPreview,
+    mediaBlobUrl,
+    mediaImageReady,
+    mediaError,
+    viewingResource.id,
+  ])
+
+  useEffect(() => {
+    return () => {
+      revokeMediaObjectUrl()
+    }
+  }, [revokeMediaObjectUrl])
+
+  const handleDownload = useCallback(() => {
+    if (isLocalPreview && viewingResource.localFile) {
+      const url = localBlobUrl || URL.createObjectURL(viewingResource.localFile)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = viewingResource.name
+      a.click()
+      if (!localBlobUrl) URL.revokeObjectURL(url)
+      addToast('success', '下载已开始')
+      return
+    }
+    if (!downloadUrl) {
+      addToast('error', '无法下载该文件')
+      return
+    }
+    window.open(downloadUrl, '_blank')
+    addToast('success', '下载已开始')
+  }, [downloadUrl, addToast, isLocalPreview, viewingResource.localFile, viewingResource.name, localBlobUrl])
+
+  useEffect(() => {
+    if (fileType.type !== 'pdf' || isLocalPreview) {
+      revokePdfObjectUrl()
+      setPdfLoading(false)
+      setPdfError(isLocalPreview && fileType.type === 'pdf' ? '请发送后再预览 PDF，或先下载查看' : null)
+      return
+    }
+
+    const resourceId = viewingResource.id
+    let cancelled = false
+    const ac = new AbortController()
     let retryTimer: ReturnType<typeof setTimeout> | null = null
 
+    if (isPreviewLoadFailed(resourceId)) {
+      revokePdfObjectUrl()
+      setPdfError('预览加载失败，请关闭后重试')
+      setPdfLoading(false)
+      return () => {
+        cancelled = true
+        ac.abort()
+      }
+    }
+
+    let attempt = 0
+    const maxAttempts = 3
+    const baseDelay = 1000
+
     const tryLoad = async () => {
-      const ac = new AbortController()
+      if (cancelled || ac.signal.aborted) return
       revokePdfObjectUrl()
       setPdfError(null)
       setPdfLoading(true)
 
-      const path = API_ENDPOINTS.projectArtifactPreview(viewingResource.id)
+      const path = API_ENDPOINTS.projectArtifactPreview(resourceId)
       const base = API_CONFIG.baseUrl || ''
       let url = `${base}${path}`
       const token = getAuthToken()
@@ -253,6 +565,16 @@ export default function ArtifactPreviewPanel({
       try {
         const res = await fetch(url, { headers, signal: ac.signal })
         if (!res.ok) {
+          if ([401, 403, 429].includes(res.status)) {
+            const t = await res.text().catch(() => '')
+            throw new Error(
+              res.status === 401
+                ? '未授权，请重新登录'
+                : res.status === 429
+                  ? '请求过于频繁，请稍后再试'
+                  : `请求失败 ${res.status}${t ? `：${t.slice(0, 200)}` : ''}`,
+            )
+          }
           if (res.status === 404 && attempt < maxAttempts - 1) {
             attempt++
             const delay = baseDelay * Math.pow(2, attempt - 1)
@@ -262,11 +584,7 @@ export default function ArtifactPreviewPanel({
             return
           }
           const t = await res.text().catch(() => '')
-          throw new Error(
-            res.status === 401
-              ? '未授权，请重新登录'
-              : `请求失败 ${res.status}${t ? `：${t.slice(0, 200)}` : ''}`
-          )
+          throw new Error(`请求失败 ${res.status}${t ? `：${t.slice(0, 200)}` : ''}`)
         }
         const buf = await res.arrayBuffer()
         const u8 = new Uint8Array(buf)
@@ -303,12 +621,13 @@ export default function ArtifactPreviewPanel({
     tryLoad()
     return () => {
       cancelled = true
+      ac.abort()
       if (retryTimer) clearTimeout(retryTimer)
       revokePdfObjectUrl()
     }
-  }, [fileType.type, sessionId, viewingResource.id, revokePdfObjectUrl])
+  }, [fileType.type, viewingResource.id, isLocalPreview])
 
-  // Load markdown content（带 404 自动重试：文件刚生成时后端可能尚未持久化）
+  // Load markdown / plain text（本地 FileReader 或远端 artifact preview）
   useEffect(() => {
     if (fileType.type !== 'markdown') {
       setMarkdownContent('')
@@ -317,42 +636,148 @@ export default function ArtifactPreviewPanel({
     }
     if (viewingResource.content?.trim()) {
       setMarkdownContent(viewingResource.content)
+      chatPreviewLog('load_done', 'using inline content', {
+        chars: viewingResource.content.length,
+      })
       return
     }
-    let cancelled = false
-    let attempt = 0
-    const maxAttempts = 4
-    const baseDelay = 1000
 
-    const tryLoad = async () => {
+    const localFile = viewingResource.localFile
+    if (isLocalPreview) {
+      if (!localFile) {
+        setMarkdownContent('')
+        setMarkdownError('本地文件不可用')
+        chatPreviewLog('load_error', 'local preview missing File object', {}, 'error')
+        return
+      }
+      let cancelled = false
       setMarkdownLoading(true)
       setMarkdownError(null)
+      chatPreviewLog('load_local', 'reading local file as text', { name: localFile.name })
+      void localFile
+        .text()
+        .then((text) => {
+          if (cancelled) return
+          setMarkdownContent(text)
+          chatPreviewLog('load_done', 'local text loaded', { chars: text.length })
+        })
+        .catch((err: unknown) => {
+          if (cancelled) return
+          const msg = err instanceof Error ? err.message : '读取本地文件失败'
+          setMarkdownError(msg)
+          chatPreviewLog('load_error', msg, {}, 'error')
+        })
+        .finally(() => {
+          if (!cancelled) setMarkdownLoading(false)
+        })
+      return () => {
+        cancelled = true
+      }
+    }
+
+    const resourceId = viewingResource.id
+    const resourceName = viewingResource.name
+    const resourceUrl = viewingResource.url
+
+    if (isPreviewLoadFailed(resourceId)) {
+      setMarkdownContent('')
+      setMarkdownError('预览加载失败，请关闭后重试')
+      setMarkdownLoading(false)
+      return
+    }
+
+    let cancelled = false
+    const ac = new AbortController()
+    let attempt = 0
+    const maxAttempts = 3
+    const baseDelay = 1000
+    let retryTimer: ReturnType<typeof setTimeout> | null = null
+    const ids = previewCacheAliases(resourceId, resourceUrl)
+
+    const tryLoad = async () => {
+      if (cancelled || ac.signal.aborted) return
+      setMarkdownLoading(true)
+      setMarkdownError(null)
+
+      const cached = await getCachedPreviewAny(ids, resourceName)
+      if (cached && !cancelled) {
+        try {
+          const text = await cached.blob.text()
+          setMarkdownContent(text)
+          chatPreviewLog('load_done', 'markdown loaded from cache', { chars: text.length })
+          setMarkdownLoading(false)
+          return
+        } catch {
+          // fall through to server fetch
+        }
+      }
+
+      const token = getAuthToken()
+      const headers: Record<string, string> = {
+        Accept: 'text/markdown,text/plain,*/*',
+      }
+      if (token) headers.Authorization = `Bearer ${token}`
+
+      const fetchUrl = buildArtifactUrl(resourceId, 'preview')
+      const urlWithToken = token
+        ? `${fetchUrl}?token=${encodeURIComponent(token)}`
+        : fetchUrl
+
+      chatPreviewLog('load_server', 'fetching artifact preview', {
+        resourceId,
+        attempt: attempt + 1,
+      })
+
       try {
-        const res = await fetch(previewUrl, { headers: { 'Accept': 'text/markdown,text/plain,*/*' } })
+        const res = await fetch(urlWithToken, { headers, signal: ac.signal })
         if (!res.ok) {
+          if ([401, 403, 429].includes(res.status)) {
+            throw new Error(
+              res.status === 429 ? '请求过于频繁，请稍后再试' : `HTTP ${res.status}`,
+            )
+          }
           if (res.status === 404 && attempt < maxAttempts - 1) {
             attempt++
             const delay = baseDelay * Math.pow(2, attempt - 1)
             if (!cancelled) {
-              setMarkdownLoading(true)
-              window.setTimeout(tryLoad, delay)
+              retryTimer = window.setTimeout(tryLoad, delay)
             }
             return
           }
           throw new Error(`HTTP ${res.status}`)
         }
         const text = await res.text()
-        if (!cancelled) setMarkdownContent(text)
-      } catch (err: any) {
-        if (!cancelled) setMarkdownError(err?.message || '加载失败')
+        if (!cancelled) {
+          setMarkdownContent(text)
+          chatPreviewLog('load_done', 'server text loaded', { chars: text.length })
+          const blob = new Blob([text], { type: 'text/plain;charset=utf-8' })
+          await Promise.all(ids.map((id) => setCachedPreview(id, blob, 'text/plain', resourceName)))
+        }
+      } catch (err: unknown) {
+        if (cancelled || (err instanceof DOMException && err.name === 'AbortError')) return
+        const msg = err instanceof Error ? err.message : '加载失败'
+        setMarkdownError(msg)
+        chatPreviewLog('load_error', msg, { resourceId }, 'error')
       } finally {
         if (!cancelled) setMarkdownLoading(false)
       }
     }
 
     tryLoad()
-    return () => { cancelled = true }
-  }, [fileType.type, viewingResource.content, previewUrl])
+    return () => {
+      cancelled = true
+      ac.abort()
+      if (retryTimer) clearTimeout(retryTimer)
+    }
+  }, [
+    fileType.type,
+    viewingResource.content,
+    viewingResource.localFile,
+    viewingResource.id,
+    viewingResource.url,
+    viewingResource.name,
+    isLocalPreview,
+  ])
 
   const renderPreview = () => {
     switch (fileType.type) {
@@ -392,22 +817,119 @@ export default function ArtifactPreviewPanel({
         }
         return (
           <div className="min-h-0 overflow-y-auto p-4 bg-white">
-            <MarkdownRenderer content={markdownContent || '无内容'} />
-          </div>
-        )
-
-      case 'image':
-        return (
-          <div className="min-h-0 flex items-center justify-center bg-gray-50 p-4 overflow-auto">
-            <img
-              src={previewUrl}
-              alt={viewingResource.name}
-              className="max-w-full max-h-full object-contain shadow-lg rounded-lg"
+            <MarkdownRenderer
+              content={
+                markdownContent.trim()
+                  ? markdownContent
+                  : '无内容'
+              }
             />
           </div>
         )
 
+      case 'image': {
+        const imageBusy =
+          mediaLoading || Boolean(previewUrl && !mediaImageReady && !mediaError)
+        if (mediaError && !previewUrl) {
+          return (
+            <div className="min-h-0 flex flex-col items-center justify-center gap-3 bg-gray-50 p-4">
+              <p className="text-sm text-gray-500">加载失败: {mediaError}</p>
+              <button
+                onClick={handleDownload}
+                className="text-xs px-3 py-1.5 rounded-md border border-gray-200 text-gray-700 hover:text-gray-900 hover:border-gray-300"
+              >
+                下载文件
+              </button>
+            </div>
+          )
+        }
+        if (!previewUrl) {
+          if (imageBusy) {
+            return (
+              <div className="min-h-0 flex items-center justify-center bg-gray-50 p-4">
+                <div className="flex items-center gap-2 text-sm text-gray-500">
+                  <span className="w-4 h-4 rounded-full border-2 border-gray-300 border-t-gray-600 animate-spin" />
+                  <span>正在加载图片...</span>
+                </div>
+              </div>
+            )
+          }
+          return (
+            <div className="min-h-0 flex flex-col items-center justify-center gap-3 bg-gray-50 p-4">
+              <p className="text-sm text-gray-500">
+                {mediaError || '无法生成预览'}
+              </p>
+              <button
+                onClick={handleDownload}
+                className="text-xs px-3 py-1.5 rounded-md border border-gray-200 text-gray-700 hover:text-gray-900 hover:border-gray-300"
+              >
+                下载文件
+              </button>
+            </div>
+          )
+        }
+        return (
+          <div className="relative min-h-0 flex items-center justify-center bg-gray-50 p-4 overflow-auto">
+            {imageBusy && (
+              <div className="absolute inset-0 z-10 flex items-center justify-center bg-gray-50/80">
+                <div className="flex items-center gap-2 text-sm text-gray-500">
+                  <span className="w-4 h-4 rounded-full border-2 border-gray-300 border-t-gray-600 animate-spin" />
+                  <span>正在加载图片...</span>
+                </div>
+              </div>
+            )}
+            {mediaError && (
+              <div className="absolute top-3 left-1/2 z-20 -translate-x-1/2 rounded-md bg-white/95 px-3 py-1.5 text-xs text-gray-600 shadow">
+                {mediaError}
+              </div>
+            )}
+            <img
+              src={previewUrl}
+              alt={viewingResource.name}
+              className={cn(
+                'max-w-full max-h-full object-contain shadow-lg rounded-lg transition-opacity',
+                mediaImageReady ? 'opacity-100' : 'opacity-0',
+              )}
+              onLoad={() => {
+                setMediaImageReady(true)
+                setMediaError(null)
+              }}
+              onError={() => {
+                void handleMediaDisplayError()
+              }}
+            />
+          </div>
+        )
+      }
+
       case 'audio':
+        if (mediaLoading) {
+          return (
+            <div className="min-h-0 flex items-center justify-center bg-white p-4 text-sm text-gray-500">
+              正在加载音频...
+            </div>
+          )
+        }
+        if (mediaError || !previewUrl) {
+          if (!mediaError && !previewUrl) {
+            return (
+              <div className="min-h-0 flex items-center justify-center bg-white p-4 text-sm text-gray-500">
+                正在加载音频...
+              </div>
+            )
+          }
+          return (
+            <div className="min-h-0 flex flex-col items-center justify-center gap-3 bg-white p-4">
+              <p className="text-sm text-gray-500">{mediaError || '无法生成预览'}</p>
+              <button
+                onClick={handleDownload}
+                className="text-xs px-3 py-1.5 rounded-md border border-gray-200 text-gray-700 hover:text-gray-900 hover:border-gray-300"
+              >
+                下载文件
+              </button>
+            </div>
+          )
+        }
         return (
           <div className="min-h-0 flex flex-col items-center justify-center gap-4 bg-white p-4">
             <div className="p-4 bg-indigo-50 rounded-full">
@@ -415,15 +937,56 @@ export default function ArtifactPreviewPanel({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
               </svg>
             </div>
-            <audio controls src={previewUrl} className="w-full max-w-md" />
+            <audio
+              controls
+              src={previewUrl}
+              className="w-full max-w-md"
+              onError={() => {
+                void handleMediaDisplayError()
+              }}
+            />
             <p className="text-xs text-gray-400">{viewingResource.name}</p>
           </div>
         )
 
       case 'video':
+        if (mediaLoading) {
+          return (
+            <div className="min-h-0 flex items-center justify-center bg-black p-4 text-sm text-gray-400">
+              正在加载视频...
+            </div>
+          )
+        }
+        if (mediaError || !previewUrl) {
+          if (!mediaError && !previewUrl) {
+            return (
+              <div className="min-h-0 flex items-center justify-center bg-black p-4 text-sm text-gray-400">
+                正在加载视频...
+              </div>
+            )
+          }
+          return (
+            <div className="min-h-0 flex flex-col items-center justify-center gap-3 bg-black p-4">
+              <p className="text-sm text-gray-300">{mediaError || '无法生成预览'}</p>
+              <button
+                onClick={handleDownload}
+                className="text-xs px-3 py-1.5 rounded-md border border-gray-600 text-gray-200 hover:border-gray-400"
+              >
+                下载文件
+              </button>
+            </div>
+          )
+        }
         return (
           <div className="min-h-0 flex items-center justify-center bg-black p-4">
-            <video controls src={previewUrl} className="max-w-full max-h-full rounded-lg" />
+            <video
+              controls
+              src={previewUrl}
+              className="max-w-full max-h-full rounded-lg"
+              onError={() => {
+                void handleMediaDisplayError()
+              }}
+            />
           </div>
         )
 

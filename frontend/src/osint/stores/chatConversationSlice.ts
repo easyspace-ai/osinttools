@@ -66,7 +66,7 @@ type PendingOutgoingMessage = {
   createdAt: number
 }
 
-function mapHistoryMessagesToLocal(sessionId: string, messages: any[]): TMessage[] {
+export function mapHistoryMessagesToLocal(sessionId: string, messages: any[]): TMessage[] {
   const seenStableIds = new Set<string>()
   const converted: TMessage[] = []
   for (let i = 0; i < messages.length; i++) {
@@ -287,6 +287,35 @@ export function createChatConversationSlice(set: (partial: any) => void, get: ()
                 .map((m: TMessage) => m.content)
             )
 
+            // 上游 echo 的 user 消息通常不含 resource parts；保留 temp 消息里已上传的 resource_refs
+            const tempResourceRefsByContent = new Map<
+              string,
+              Array<{ id: string; name?: string; type?: string }>
+            >()
+            for (const m of currentMessages) {
+              if (
+                m.id.startsWith('temp-') &&
+                m.role === 'user' &&
+                m.resource_refs &&
+                m.resource_refs.length > 0
+              ) {
+                tempResourceRefsByContent.set(m.content, m.resource_refs)
+              }
+            }
+            if (tempResourceRefsByContent.size > 0) {
+              for (const msg of convertedMessages) {
+                if (
+                  msg.role === 'user' &&
+                  (!msg.resource_refs || msg.resource_refs.length === 0)
+                ) {
+                  const preserved = tempResourceRefsByContent.get(msg.content)
+                  if (preserved) {
+                    msg.resource_refs = preserved
+                  }
+                }
+              }
+            }
+
             // 过滤掉已被上游确认的临时消息
             const filteredExisting = currentMessages.filter(
               (m: TMessage) => !(m.id.startsWith('temp-') && upstreamUserContents.has(m.content))
@@ -506,9 +535,20 @@ export function createChatConversationSlice(set: (partial: any) => void, get: ()
     },
 
     // 发送消息（通过 WebSocket）
-    sendMessageWS: (sessionId: string, content: string, attachments: string[] = []) => {
+    sendMessageWS: (
+      sessionId: string,
+      content: string,
+      attachments: string[] | Array<{ id: string; name?: string; type?: string }> = [],
+    ) => {
       const ws = get().wsConnections[sessionId]
       const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+      const resourceRefs =
+        attachments.length > 0
+          ? attachments.map((item) =>
+              typeof item === 'string' ? { id: item } : { id: item.id, name: item.name, type: item.type },
+            )
+          : undefined
+      const attachmentIds = resourceRefs?.map((r) => r.id) ?? []
       console.log('[sendMessageWS] optimistic update', { tempId, contentLength: content.length })
       const meta = get().wsConnectionMeta?.[sessionId]
       const userMsg: TMessage = {
@@ -517,7 +557,7 @@ export function createChatConversationSlice(set: (partial: any) => void, get: ()
         session_id: sessionId,
         role: 'user',
         content,
-        resource_refs: attachments.length > 0 ? attachments.map(id => ({ id })) : undefined,
+        resource_refs: resourceRefs,
         attachments: { temp: true },
         created_at: new Date().toISOString(),
       }
@@ -527,18 +567,18 @@ export function createChatConversationSlice(set: (partial: any) => void, get: ()
       }))
 
       if (ws && ws.readyState === WebSocket.OPEN) {
-        console.log('[sendMessageWS] sending input', { sessionId, contentLength: content.length, attachments: attachments.length > 0 ? attachments : 'none' })
-        ws.sendInput(content, attachments)
+        console.log('[sendMessageWS] sending input', { sessionId, contentLength: content.length, attachments: attachmentIds.length > 0 ? attachmentIds : 'none' })
+        ws.sendInput(content, attachmentIds)
         return
       }
 
       // 未连接：先入队，再主动触发连接，用户无感
       const now = Date.now()
-      const dedupeSignature = `${content}::${attachments.join(',')}`
+      const dedupeSignature = `${content}::${attachmentIds.join(',')}`
       set((state: any) => {
         const queue = (state.pendingOutgoingQueue?.[sessionId] || []) as PendingOutgoingMessage[]
         const hasRecentDuplicate = queue.some(
-          (item) => item.content === content && item.attachments.join(',') === attachments.join(',') && now - item.createdAt < 1200
+          (item) => item.content === content && item.attachments.join(',') === attachmentIds.join(',') && now - item.createdAt < 1200
         )
         if (hasRecentDuplicate) {
           return {
@@ -549,7 +589,7 @@ export function createChatConversationSlice(set: (partial: any) => void, get: ()
         const nextItem: PendingOutgoingMessage = {
           id: `${tempId}-${dedupeSignature.length}`,
           content,
-          attachments,
+          attachments: attachmentIds,
           createdAt: now,
         }
         return {
@@ -732,6 +772,29 @@ export function createChatConversationSlice(set: (partial: any) => void, get: ()
 } catch (directErr: any) {
                // 独立会话接口已覆盖绝大多数情况，不再 fallback 到 project-based 接口
                throw directErr
+            }
+            if (
+              apiMessages.length > 0 &&
+              apiMessages.some((m) => !m.resource_refs?.length)
+            ) {
+              try {
+                const historyResp = await sessionApi.getSessionHistoryDirect(sessionId, {
+                  offset: 0,
+                  limit: pageSize,
+                })
+                const upstreamMessages = Array.isArray(historyResp?.messages)
+                  ? historyResp.messages
+                  : []
+                if (upstreamMessages.length > 0) {
+                  const fromHistory = mapHistoryMessagesToLocal(sessionId, upstreamMessages)
+                  apiMessages = historySync.enrichMessagesWithResourceRefs(apiMessages, fromHistory)
+                }
+              } catch (historyErr) {
+                console.warn(
+                  `[fetchMessagesBySession] resource_refs enrich from history failed for ${sessionId}:`,
+                  historyErr,
+                )
+              }
             }
           }
           if (!isActiveSession()) {

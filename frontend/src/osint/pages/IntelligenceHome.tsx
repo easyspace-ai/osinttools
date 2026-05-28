@@ -14,6 +14,8 @@ import { SkillFormModal } from '@/osint/components/intelligence/SkillFormModal'
 import { intelligenceSkillApi } from '@/osint/services/api'
 import type { IntelligenceSkill } from '@/osint/types'
 import type { MessageStatus } from '@/osint/components/ai-elements'
+import { chatUploadGroup, chatUploadLog } from '@/osint/lib/chatUploadLog'
+import { previewCacheAliases, seedCachedPreviewFromFile } from '@/osint/lib/chatPreviewCache'
 
 /** 嵌入 polyai 时为 `/ai-session`；独立运行时不设置 */
 const OSINT_ROUTE_BASE = String((import.meta as any).env?.VITE_OSINT_ROUTE_BASE ?? '').replace(/\/$/, '')
@@ -116,10 +118,12 @@ export default function IntelligenceHome() {
     updateSession,
     deleteSession,
     sendMessageWS,
+    uploadResource,
     connectWebSocket,
     disconnectWebSocket,
     retryWebSocketConnection,
     abortActiveMessageStream,
+    fetchResources,
     fetchIntelligenceSkills,
     executeIntelligenceSkill,
   } = useAppStore()
@@ -198,6 +202,8 @@ export default function IntelligenceHome() {
         }
         if (cancelled || initRunIdRef.current !== runId) return
 
+        void fetchResources(urlSessionId)
+
         connectWebSocket(urlSessionId)
       })()
     } else {
@@ -209,7 +215,7 @@ export default function IntelligenceHome() {
       cancelled = true
       if (urlSessionId) disconnectWebSocket(urlSessionId)
     }
-  }, [urlSessionId, fetchSessions, fetchMessagesBySession, connectWebSocket, disconnectWebSocket, setActiveMessageSession, clearSessionMessages])
+  }, [urlSessionId, fetchSessions, fetchMessagesBySession, fetchResources, connectWebSocket, disconnectWebSocket, setActiveMessageSession, clearSessionMessages])
 
   useEffect(() => {
     if (!urlSessionId) return
@@ -288,7 +294,62 @@ export default function IntelligenceHome() {
 
   const handleSendMessage = async (message: string, _mode: string, _skillId: string | null, attachments: Attachment[], _model?: string) => {
     const sessionId = await ensureActiveSession(message)
-    sendMessageWS(sessionId, message, attachments.map(a => a.id))
+    const localAttachments = attachments.filter((a) => a.type === 'local' && a.file)
+    const libraryRefs = attachments
+      .filter((a) => a.type !== 'local')
+      .map((a) => ({ id: a.id, name: a.name, type: a.type }))
+
+    let uploadedRefs: Array<{ id: string; name?: string; type?: string }> = []
+    if (localAttachments.length > 0) {
+      try {
+        uploadedRefs = await chatUploadGroup(
+          `upload ${localAttachments.length} local file(s)`,
+          { sessionId, files: localAttachments.map((a) => a.name) },
+          async () => {
+            const refs: Array<{ id: string; name?: string; type?: string }> = []
+            for (const att of localAttachments) {
+              const file = att.file!
+              chatUploadLog('upload_start', 'uploading local file before send', {
+                tempId: att.id,
+                fileName: file.name,
+                destination: 'POST /api/sessions/:id/upload → AI SDK cloud + DB resource row',
+              })
+              const resource = await uploadResource(sessionId, file)
+              await seedCachedPreviewFromFile(
+                resource.id,
+                file,
+                previewCacheAliases(resource.id, resource.url).filter((id) => id !== resource.id),
+              )
+              refs.push({
+                id: resource.id,
+                name: resource.name || att.name,
+                type: resource.type || 'file',
+              })
+              chatUploadLog('upload_success', 'mapped temp attachment to server resource id', {
+                tempId: att.id,
+                resourceId: resource.id,
+                url: resource.url,
+              })
+            }
+            return refs
+          },
+        )
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : '文件上传失败'
+        chatUploadLog('upload_failure', msg, { sessionId }, 'error')
+        addToast('error', msg)
+        return
+      }
+    }
+
+    const resourceRefs = [...libraryRefs, ...uploadedRefs]
+    chatUploadLog('send_message', 'sending via WebSocket with resource_refs', {
+      sessionId,
+      resourceRefs,
+      localUploaded: uploadedRefs.length,
+      libraryAttached: libraryRefs.length,
+    })
+    sendMessageWS(sessionId, message, resourceRefs)
   }
 
   const handleSkillClick = (skill: IntelligenceSkill) => {

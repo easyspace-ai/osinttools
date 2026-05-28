@@ -28,7 +28,30 @@ import { ModelSelector } from './ModelSelector'
 import { StudioActionsPopover } from './StudioActionsPopover'
 import { ResourcePickerPopover } from './ResourcePickerPopover'
 import { HardDrive } from 'lucide-react'
+import { validateChatUploadFile } from '@/osint/lib/chatUpload'
+import { chatUploadLog } from '@/osint/lib/chatUploadLog'
+import { chatPreviewLog } from '@/osint/lib/chatPreviewLog'
+import { clearPreviewLoadFailure } from '@/osint/lib/chatPreviewCache'
+import { useToast } from '@/osint/components/ui/Feedback'
 import ArtifactPreviewPanel from '@/osint/components/ArtifactPreviewPanel'
+import type { Resource } from '@/osint/types'
+
+function resolveStoredResource(
+  ref: { id: string; name?: string; type?: string },
+  resources: Resource[],
+): Resource | undefined {
+  const id = ref.id.trim()
+  if (!id) return undefined
+  return resources.find((r) => {
+    if (r.id === id) return true
+    const url = r.url?.trim()
+    if (!url) return false
+    if (url === `sdk-file:${id}` || url === `source:${id}`) return true
+    if (url.startsWith('sdk-file:') && url.slice('sdk-file:'.length) === id) return true
+    if (url.startsWith('source:') && url.slice('source:'.length) === id) return true
+    return false
+  })
+}
 
 interface AIChatProps {
   // 数据
@@ -146,6 +169,8 @@ export function AIChat({
   onRetryLoadMessages,
 }: AIChatProps) {
   const navigate = useNavigate()
+  const { addToast } = useToast()
+  const resources = useAppStore((s) => s.resources)
 
   // 状态
   const [inputValue, setInputValue] = useState('')
@@ -155,7 +180,14 @@ export function AIChat({
   const [showStudioPicker, setShowStudioPicker] = useState(false)
   const [showResourcePicker, setShowResourcePicker] = useState(false)
   const [selectedStudioTool, setSelectedStudioTool] = useState<StudioAction | null>(null)
-  const [previewingResource, setPreviewingResource] = useState<{ id: string; name: string; type?: string; content?: string; url?: string | null } | null>(null)
+  const [previewingResource, setPreviewingResource] = useState<{
+    id: string
+    name: string
+    type?: string
+    content?: string
+    url?: string | null
+    localFile?: File
+  } | null>(null)
   const [isPreviewExpanded, setIsPreviewExpanded] = useState(false)
 
   // 同步外部传入的 activeStudioToolId
@@ -290,7 +322,7 @@ export function AIChat({
     return () => cancelAnimationFrame(id)
   }, [inputPrefill?.seq])
 
-  // 处理添加本地文件
+  // 处理添加本地文件（暂存于浏览器内存，发送时由 IntelligenceHome 上传至后端 / AI SDK）
   const handleAddLocalFile = useCallback(() => {
     if (upstreamInputLocked || isStreaming) return
     const input = document.createElement('input')
@@ -301,19 +333,49 @@ export function AIChat({
       const files = Array.from(target.files || [])
       if (files.length === 0) return
 
-      const newAttachments: Attachment[] = files.map((file) => ({
-        id: `local-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
-        name: file.name,
-        type: 'local',
-        file,
-        size: file.size,
-        mimeType: file.type,
-      }))
+      console.groupCollapsed('[ChatUpload] file_selected', { count: files.length })
+      const accepted: Attachment[] = []
+      for (const file of files) {
+        chatUploadLog('file_selected', 'user picked file', {
+          name: file.name,
+          size: file.size,
+          mimeType: file.type || '(unknown)',
+          storage: 'browser-memory (not uploaded yet)',
+        })
+        const validationError = validateChatUploadFile(file)
+        if (validationError) {
+          chatUploadLog('validation', validationError, { name: file.name }, 'warn')
+          addToast('error', `${file.name}: ${validationError}`)
+          continue
+        }
+        chatUploadLog('validation', 'passed', {
+          name: file.name,
+          maxBytes: 20 * 1024 * 1024,
+        })
+        accepted.push({
+          id: `local-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+          name: file.name,
+          type: 'local',
+          file,
+          size: file.size,
+          mimeType: file.type,
+        })
+      }
+      console.groupEnd()
 
-      setAttachments((prev) => [...prev, ...newAttachments])
+      if (accepted.length === 0) return
+
+      setAttachments((prev) => {
+        const next = [...prev, ...accepted]
+        chatUploadLog('attachment_state', 'local files queued in chat input', {
+          added: accepted.map((a) => a.name),
+          totalAttachments: next.length,
+        })
+        return next
+      })
     }
     input.click()
-  }, [upstreamInputLocked, isStreaming])
+  }, [upstreamInputLocked, isStreaming, addToast])
 
   // 处理从资料库添加
   const handleAddFromLibrary = useCallback(
@@ -325,6 +387,11 @@ export function AIChat({
         name: file.name,
         type: 'library',
       }
+      chatUploadLog('attachment_state', 'library resource attached (already on server)', {
+        resourceId: file.id,
+        name: file.name,
+        storage: 'server-db (no upload)',
+      })
       setAttachments((prev) => [...prev, attachment])
       setShowResourcePicker(false)
     },
@@ -335,6 +402,67 @@ export function AIChat({
   const handleRemoveAttachment = useCallback((id: string) => {
     setAttachments((prev) => prev.filter((a) => a.id !== id))
   }, [])
+
+  const handlePreviewAttachment = useCallback(
+    (attachment: Attachment) => {
+      if (!sessionId) {
+        addToast('error', '请先选择或创建会话后再预览')
+        return
+      }
+      chatPreviewLog('open', 'attachment preview requested', {
+        id: attachment.id,
+        name: attachment.name,
+        type: attachment.type,
+        hasFile: Boolean(attachment.file),
+      })
+      if (attachment.type === 'library') {
+        const stored = resolveStoredResource(
+          { id: attachment.id, name: attachment.name, type: attachment.type },
+          resources,
+        )
+        clearPreviewLoadFailure(stored?.id ?? attachment.id)
+        setPreviewingResource({
+          id: stored?.id ?? attachment.id,
+          name: attachment.name,
+          type: stored?.type ?? attachment.type,
+          url: stored?.url ?? undefined,
+        })
+      } else {
+        setPreviewingResource({
+          id: attachment.id,
+          name: attachment.name,
+          type: attachment.type === 'local' ? 'file' : attachment.type,
+          localFile: attachment.type === 'local' ? attachment.file : undefined,
+        })
+      }
+      setIsPreviewExpanded(false)
+    },
+    [sessionId, addToast, resources],
+  )
+
+  const handleViewResource = useCallback(
+    (res: { id: string; name?: string; type?: string }) => {
+      const stored = resolveStoredResource(res, resources)
+      const previewId = stored?.id ?? res.id
+      clearPreviewLoadFailure(previewId)
+      if (res.id !== previewId) clearPreviewLoadFailure(res.id)
+      chatPreviewLog('open', 'message resource preview requested', {
+        id: res.id,
+        name: res.name,
+        type: res.type,
+        resolvedDbId: stored?.id,
+        resolvedUrl: stored?.url,
+      })
+      setPreviewingResource({
+        id: previewId,
+        name: res.name || stored?.name || '未命名文件',
+        type: res.type || stored?.type,
+        url: stored?.url ?? undefined,
+      })
+      setIsPreviewExpanded(false)
+    },
+    [resources],
+  )
 
   return (
     <ChatContainer className={className}>
@@ -349,19 +477,12 @@ export function AIChat({
         onCopy={onCopy}
         onRegenerate={onRegenerate}
         onSaveAsDocument={onSaveAsDocument}
-        onViewResource={(res) =>
-          setPreviewingResource({
-            id: res.id,
-            name: res.name || '未命名文件',
-            type: res.type,
-          })
-        }
+        onViewResource={handleViewResource}
       />
 
       {/* 内联资源预览面板 */}
       {sessionId && previewingResource && (
         <ArtifactPreviewPanel
-          key={previewingResource.id}
           viewingResource={previewingResource}
           sessionId={sessionId}
           isPreviewExpanded={isPreviewExpanded}
@@ -461,7 +582,11 @@ export function AIChat({
 
           {/* 附件列表 */}
           {attachments.length > 0 && (
-            <AttachmentList attachments={attachments} onRemove={handleRemoveAttachment} />
+            <AttachmentList
+              attachments={attachments}
+              onRemove={handleRemoveAttachment}
+              onPreview={handlePreviewAttachment}
+            />
           )}
 
           {/* 输入框容器 */}

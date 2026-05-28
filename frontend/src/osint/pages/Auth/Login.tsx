@@ -176,9 +176,7 @@ export default function Login() {
                 <input type="checkbox" className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
                 <span className="text-sm text-gray-600">记住我</span>
               </label>
-              <Link to="/forgot-password" className="text-sm font-medium text-primary-600 hover:text-primary-700">
-                忘记密码？
-              </Link>
+            
             </div>
             
             <button
@@ -202,11 +200,7 @@ export default function Login() {
             </button>
           </form>
           
-          <div className="mt-8 text-center">
-            <p className="text-sm text-gray-500">
-              请联系管理员开通账号
-            </p>
-          </div>
+          
         </div>
       </div>
     </div>

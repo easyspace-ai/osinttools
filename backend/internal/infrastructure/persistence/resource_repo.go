@@ -1,6 +1,8 @@
 package persistence
 
 import (
+	"strings"
+
 	"github.com/easyspace-ai/ylmnote/internal/domain/project"
 )
 
@@ -33,6 +35,21 @@ func (r *ResourceRepository) GetByResourceID(resourceID string) (*project.Resour
 		return nil, err
 	}
 	return toResourceEntity(&m), nil
+}
+
+// GetBySDKFileID 通过 w6/sdk file_id（sdk-file: / source: URL）反查资源
+func (r *ResourceRepository) GetBySDKFileID(fileID string) (*project.Resource, error) {
+	fileID = strings.TrimSpace(fileID)
+	if fileID == "" {
+		return nil, gormErrNotFound
+	}
+	var m ResourceModel
+	for _, url := range []string{"sdk-file:" + fileID, "source:" + fileID} {
+		if err := r.db.Where("url = ?", url).Order("created_at DESC").First(&m).Error; err == nil {
+			return toResourceEntity(&m), nil
+		}
+	}
+	return nil, gormErrNotFound
 }
 
 func (r *ResourceRepository) ListBySessionID(sessionID string) ([]*project.Resource, error) {

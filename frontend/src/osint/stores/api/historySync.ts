@@ -26,6 +26,12 @@ interface UpstreamMessage {
   message_parts?: Array<{
     type: string
     content?: string
+    resource?: {
+      id?: string
+      name?: string
+      kind?: string
+      data?: { filename?: string }
+    }
   }>
   created_at?: number
   attachments?: any
@@ -107,6 +113,32 @@ function pickRicherDuplicate(a: TMessage, b: TMessage): TMessage {
   return a
 }
 
+/** Copy resource_refs from upstream/history rows onto DB-backed messages that lack them. */
+export function enrichMessagesWithResourceRefs(
+  base: TMessage[],
+  withRefs: TMessage[],
+): TMessage[] {
+  const byCanonical = new Map<string, NonNullable<TMessage['resource_refs']>>()
+  const byUserContent = new Map<string, NonNullable<TMessage['resource_refs']>>()
+
+  for (const m of withRefs) {
+    if (!m.resource_refs?.length) continue
+    byCanonical.set(canonicalDedupeKey(m), m.resource_refs)
+    if (m.role === 'user' && m.content) {
+      byUserContent.set(m.content, m.resource_refs)
+    }
+  }
+
+  return base.map((m) => {
+    if (m.resource_refs?.length) return m
+    const fromKey = byCanonical.get(canonicalDedupeKey(m))
+    const fromContent =
+      m.role === 'user' && m.content ? byUserContent.get(m.content) : undefined
+    const refs = fromKey ?? fromContent
+    return refs ? { ...m, resource_refs: refs } : m
+  })
+}
+
 /** 多来源合并后必须调用，消除「同一条上游消息」因 id 表示不一致产生的重复气泡 */
 export function dedupeMessagesByCanonicalKey(messages: TMessage[]): TMessage[] {
   const map = new Map<string, TMessage>()
@@ -173,6 +205,17 @@ function convertUpstreamMessage(
     messageKind = 'system'
   }
 
+  const resourceRefs = Array.isArray(msg.message_parts)
+    ? msg.message_parts
+        .filter((part) => part.type === 'resource')
+        .map((part) => ({
+          id: part.resource?.id || '',
+          name: part.resource?.name || part.resource?.data?.filename || '未命名文件',
+          type: part.resource?.kind || 'file',
+        }))
+        .filter((r) => r.id)
+    : undefined
+
   return {
     id,
     upstream_message_id: rawUpstream != null ? String(rawUpstream) : id,
@@ -185,6 +228,7 @@ function convertUpstreamMessage(
       message_kind: messageKind,
       ...(msg.attachments || {}),
     },
+    resource_refs: resourceRefs && resourceRefs.length > 0 ? resourceRefs : undefined,
     created_at: msg.created_at
       ? new Date(msg.created_at * 1000).toISOString()
       : new Date().toISOString(),

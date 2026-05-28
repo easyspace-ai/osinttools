@@ -32,9 +32,13 @@ func (w *XStreamSyncWorker) Work(ctx context.Context, job *river.Job[XStreamSync
 		slog.Duration("dedup_period", xstreamUniquePeriod),
 	)
 	if !w.Fetcher.IsInitDone() {
-		slog.Info("[river] xstream_sync: running initialization", slog.Int64("job_id", job.ID))
-		if err := w.Fetcher.Initialize(ctx); err != nil {
-			return err
+		if xstream.InitEnabledFromEnv() {
+			slog.Info("[river] xstream_sync: running initialization (XSTREAM_INIT_ENABLED=true)")
+			if err := w.Fetcher.Initialize(ctx); err != nil {
+				return err
+			}
+		} else {
+			slog.Info("[river] xstream_sync: skipping init (XSTREAM_INIT_ENABLED=false, use POST /xstream/init to trigger)")
 		}
 	}
 	if err := w.Fetcher.FetchOnce(ctx); err != nil {
