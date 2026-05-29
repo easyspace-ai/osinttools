@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
-import { useAuthStore } from '@/osint/stores/authStore'
+import { useOsintAuthStore } from '@/osint/auth'
 import { ErrorBoundary } from '@/osint/components/ErrorBoundary'
 import MainLayout from '@/osint/components/layout/MainLayout'
 import IntelligenceHome from '@/osint/pages/IntelligenceHome'
@@ -10,13 +10,22 @@ import Register from '@/osint/pages/Auth/Register'
 import { ToastProvider } from '@/osint/components/ui/Feedback'
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const token = useAuthStore((state) => state.token)
-  const user = useAuthStore((state) => state.user)
-  const logout = useAuthStore((state) => state.logout)
+  const token = useOsintAuthStore((state) => state.token)
+  const user = useOsintAuthStore((state) => state.user)
+  const ready = useOsintAuthStore((state) => state.ready)
+  const clearSession = useOsintAuthStore((state) => state.clearSession)
+
+  if (!ready) {
+    return (
+      <div className="flex min-h-screen items-center justify-center text-sm text-slate-500">
+        加载中…
+      </div>
+    )
+  }
 
   if (!token || !user) {
     if (token || user) {
-      logout()
+      clearSession('invalid')
     }
     return <Navigate to="/login" replace />
   }

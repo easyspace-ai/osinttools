@@ -99,14 +99,16 @@ func (s *Service) Register(in RegisterInput) (*RegisterResult, error) {
 
 // LoginInput 登录入参
 type LoginInput struct {
-	Username string
-	Password string
+	Username   string
+	Password   string
+	RememberMe bool
 }
 
 // LoginResult 登录结果（仅含 token，用户信息由 /me 拉取）
 type LoginResult struct {
 	AccessToken string
 	TokenType   string
+	ExpiresIn   int // seconds until access token expiry
 }
 
 // Login 验证账号密码并返回 JWT
@@ -122,12 +124,20 @@ func (s *Service) Login(in LoginInput) (*LoginResult, error) {
 	if err := bcrypt.CompareHashAndPassword([]byte(u.HashedPassword), []byte(in.Password)); err != nil {
 		return nil, ErrInvalidCredentials
 	}
-	expires := time.Now().Add(time.Duration(s.cfg.AccessTokenExpireMin) * time.Minute)
+	expireMin := s.cfg.AccessTokenSessionExpireMin
+	if in.RememberMe {
+		expireMin = s.cfg.AccessTokenExpireMin
+	}
+	expires := time.Now().Add(time.Duration(expireMin) * time.Minute)
 	token, err := s.createJWT(u.ID, expires)
 	if err != nil {
 		return nil, err
 	}
-	return &LoginResult{AccessToken: token, TokenType: "bearer"}, nil
+	return &LoginResult{
+		AccessToken: token,
+		TokenType:   "bearer",
+		ExpiresIn:   expireMin * 60,
+	}, nil
 }
 
 // GetUserByID 供中间件/me 使用

@@ -1,7 +1,7 @@
 import { Crown, Shield, Sun, Moon, Bell, Globe, Database, LogOut, ChevronRight, Sparkles, AlertTriangle } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { cn } from '@/osint/utils'
-import { useAuthStore } from '@/osint/stores/authStore'
+import { useOsintAuthStore } from '@/osint/auth'
 import { useAppStore } from '@/osint/stores/apiStore'
 import { Modal } from '@/osint/components/ui/Dialog'
 
@@ -12,8 +12,8 @@ function DeleteAccountButton() {
   const [open, setOpen] = useState(false)
   const [confirmText, setConfirmText] = useState('')
   const [deleting, setDeleting] = useState(false)
-  const { logout } = useAuthStore()
-  const token = useAuthStore.getState().token
+  const logout = useOsintAuthStore((s) => s.logout)
+  const token = useOsintAuthStore((s) => s.token)
 
   const handleDelete = async () => {
     if (confirmText !== '删除') return

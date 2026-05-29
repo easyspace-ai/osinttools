@@ -17,7 +17,10 @@ type Config struct {
 	HTTPPort             string
 	DatabaseURL          string
 	JWTSecret            string
+	// AccessTokenExpireMin 「记住我」登录的 access token 有效期（分钟），默认一年。
 	AccessTokenExpireMin int
+	// AccessTokenSessionExpireMin 未勾选「记住我」时的 access token 有效期（分钟），默认 24 小时。
+	AccessTokenSessionExpireMin int
 	LogFilePath          string
 	LogToStdout          bool
 	GORMLogSQL           bool
@@ -138,7 +141,8 @@ func Load() *Config {
 		HTTPPort:             getEnv("HTTP_PORT"),
 		DatabaseURL:          getEnv("DATABASE_URL"),
 		JWTSecret:            getEnv("JWT_SECRET"),
-		AccessTokenExpireMin: getEnvInt("ACCESS_TOKEN_EXPIRE_MINUTES"),
+		AccessTokenExpireMin:        getEnvInt("ACCESS_TOKEN_EXPIRE_MINUTES"),
+		AccessTokenSessionExpireMin: getEnvInt("ACCESS_TOKEN_SESSION_EXPIRE_MINUTES"),
 		LogFilePath:          strings.TrimSpace(getEnv("LOG_FILE_PATH")),
 		LogToStdout:          getEnvBoolDefault("LOG_TO_STDOUT", true),
 		GORMLogSQL:           getEnvBool("GORM_LOG_SQL"),
@@ -195,7 +199,10 @@ func Load() *Config {
 		cfg.LogFilePath = "./logs/backend.log"
 	}
 	if cfg.AccessTokenExpireMin == 0 {
-		cfg.AccessTokenExpireMin = 60
+		cfg.AccessTokenExpireMin = 525600 // 365 days
+	}
+	if cfg.AccessTokenSessionExpireMin == 0 {
+		cfg.AccessTokenSessionExpireMin = 1440 // 24 hours
 	}
 
 	if cfg.SDK.UploadPath == "" {

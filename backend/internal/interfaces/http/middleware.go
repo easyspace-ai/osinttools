@@ -32,7 +32,12 @@ func AuthMiddleware(authSvc *auth.Service) gin.HandlerFunc {
 		}
 		// Cookie（River UI 浏览器直接访问 /jobs）
 		if token == "" {
-			if cookie, err := c.Cookie(authCookieName); err == nil {
+			if cookie, err := c.Cookie(authCookieName); err == nil && cookie != "" {
+				token = cookie
+			}
+		}
+		if token == "" {
+			if cookie, err := c.Cookie(legacyAuthCookieName); err == nil && cookie != "" {
 				token = cookie
 			}
 		}
@@ -88,6 +93,11 @@ func JobsAuthBridge(authSvc *auth.Service) gin.HandlerFunc {
 			c.Abort()
 			return
 		}
+		if cookie, err := c.Cookie(legacyAuthCookieName); err == nil && cookie != "" {
+			c.Redirect(http.StatusFound, "/jobs")
+			c.Abort()
+			return
+		}
 		parsed, err := jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
 			if token.Method.Alg() != jwt.SigningMethodHS256.Alg() {
 				return nil, jwt.ErrTokenSignatureInvalid
@@ -112,7 +122,7 @@ func JobsAuthBridge(authSvc *auth.Service) gin.HandlerFunc {
 			c.Next()
 			return
 		}
-		setAuthCookie(c, token)
+		setAuthCookie(c, token, 86400*365)
 		c.Redirect(http.StatusFound, "/jobs")
 		c.Abort()
 	}

@@ -1,6 +1,7 @@
 import * as React from "react";
 import { NavLink } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { Logo } from "@/components/Logo";
 import {
   Sparkles,
   Database,
@@ -79,32 +80,6 @@ const NAV_ITEMS: NavItemConfig[] = [
     permission: NAV_PERMISSION_KEYS.admin,
   },
 ];
-
-// Logo 组件 - COMPACT
-function Logo({ collapsed }: { collapsed: boolean }) {
-  return (
-    <div className="flex items-center gap-2 px-3 py-2.5">
-      <div className="relative">
-        <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-700 to-blue-800 flex items-center justify-center shadow-sm shadow-blue-700/20">
-          <TrendingUp size={15} className="text-white" />
-        </div>
-        {!collapsed && (
-          <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white dark:border-gray-900 bg-emerald-500" />
-        )}
-      </div>
-      {!collapsed && (
-        <div className="flex flex-col">
-          <span className="text-sm font-bold tracking-tight text-gray-900 dark:text-white leading-tight">
-            Quantum
-          </span>
-          <span className="text-[10px] text-gray-500 dark:text-gray-400 leading-tight -mt-0.5">
-            Pro Platform
-          </span>
-        </div>
-      )}
-    </div>
-  );
-}
 
 // 导航项组件 - COMPACT
 function NavItem({
@@ -245,7 +220,7 @@ export function SaasSidebar({
     >
       {/* Logo 区域 */}
       <div>
-        <Logo collapsed={collapsed} />
+        <Logo collapsed={collapsed} title="Quantum" subtitle="Pro Platform" />
       </div>
 
       <Divider />

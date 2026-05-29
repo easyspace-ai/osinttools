@@ -1,20 +1,20 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, Link, useLocation } from 'react-router-dom'
-import { authApi } from '@/osint/services/api'
-import { useAuthStore } from '@/osint/stores/authStore'
+import { useOsintAuthStore } from '@/osint/auth'
 import { Eye, EyeOff, ArrowRight, Github, Mail } from 'lucide-react'
 import { cn } from '@/osint/utils'
-import { API_CONFIG } from '@/osint/config/api'
+import { LogoMark } from '@/components/Logo'
 
 export default function Login() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [remember, setRemember] = useState(true)
   const [error, setError] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
-  const { setToken, setUser } = useAuthStore()
+  const login = useOsintAuthStore((s) => s.login)
 
   useEffect(() => {
     const qs = new URLSearchParams(location.search)
@@ -29,14 +29,8 @@ export default function Login() {
     try {
       setError('')
       setIsLoading(true)
-      const { access_token } = await authApi.login({ username, password })
-      setToken(access_token)
-            const userRes = await fetch(`${API_CONFIG.baseUrl}/api/auth/me`, {
-        headers: { 'Authorization': `Bearer ${access_token}` }
-      })
-      const user = await userRes.json()
-
-      setUser(user)
+      useOsintAuthStore.getState().setRememberMe(remember)
+      await login(username, password, remember)
       const qs = new URLSearchParams(location.search)
       const redirect = qs.get('redirect')
       navigate(redirect && redirect.startsWith('/') ? redirect : '/')
@@ -59,11 +53,7 @@ export default function Login() {
         <div className="absolute bottom-20 right-20 w-96 h-96 bg-purple-500/20 rounded-full blur-3xl" />
         
         <div className="relative z-10 flex flex-col justify-center px-16 text-white">
-          <img
-            src="/logo.jpg"
-            alt="MetaNote"
-            className="w-16 h-16 mb-8 rounded-2xl object-cover shadow-lg ring-1 ring-white/25"
-          />
+          <LogoMark size="xl" className="rounded-2xl shadow-lg ring-1 ring-white/25 mb-8" />
           <h1 className="text-4xl font-bold mb-6 leading-tight">
             智能情报<br />
             <span className="text-primary-200">分析工作台</span>
@@ -97,11 +87,7 @@ export default function Login() {
         <div className="w-full max-w-md mx-auto">
           {/* Logo */}
           <div className="flex items-center gap-3 mb-8 lg:hidden">
-            <img
-              src="/logo.jpg"
-              alt="MetaNote"
-              className="w-10 h-10 rounded-xl object-cover shadow-lg shadow-primary-500/25"
-            />
+            <LogoMark className="rounded-xl shadow-lg shadow-primary-500/25" />
             <span className="text-xl font-bold text-gray-900">OSINT 工作台</span>
           </div>
           
@@ -173,8 +159,13 @@ export default function Login() {
             
             <div className="flex items-center justify-between">
               <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
-                <span className="text-sm text-gray-600">记住我</span>
+                <input
+                  type="checkbox"
+                  className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                  checked={remember}
+                  onChange={(e) => setRemember(e.target.checked)}
+                />
+                <span className="text-sm text-gray-600">记住登录状态</span>
               </label>
             
             </div>

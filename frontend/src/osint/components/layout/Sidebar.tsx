@@ -4,10 +4,11 @@ import {
   Home, ChevronLeft, ChevronRight, Zap,
 } from 'lucide-react'
 import { cn } from '@/osint/utils'
-import { useAuthStore } from '@/osint/stores/authStore'
+import { useOsintAuthStore } from '@/osint/auth'
 import { useState } from 'react'
 import { create } from 'zustand'
 import GlobalSearch from '@/osint/components/GlobalSearch'
+import { LogoMark } from '@/components/Logo'
 
 export const useSidebarStore = create<{
   sidebarCollapsed: boolean
@@ -25,7 +26,7 @@ const navItems = [
 export default function Sidebar() {
   const location = useLocation()
   const navigate = useNavigate()
-  const { user, logout } = useAuthStore()
+  const { user, logout } = useOsintAuthStore()
   const { sidebarCollapsed, setSidebarCollapsed } = useSidebarStore()
   const [userHovered, setUserHovered] = useState(false)
 
@@ -52,11 +53,7 @@ export default function Sidebar() {
         {sidebarCollapsed ? (
           <>
             <Link to="/" className="shrink-0">
-              <img
-                src="/logo.jpg"
-                alt="MetaNote"
-                className="w-9 h-9 rounded-xl object-cover"
-              />
+              <LogoMark size="nav" className="rounded-xl" />
             </Link>
             <button
               onClick={toggle}
@@ -69,11 +66,7 @@ export default function Sidebar() {
         ) : (
           <>
             <Link to="/" className="flex items-center gap-2.5 min-w-0">
-              <img
-                src="/logo.jpg"
-                alt="MetaNote"
-                className="w-9 h-9 rounded-xl object-cover shrink-0"
-              />
+              <LogoMark size="nav" className="rounded-xl" />
               <span className="font-bold text-lg text-gray-900 tracking-tight truncate">MetaNote</span>
             </Link>
             <button

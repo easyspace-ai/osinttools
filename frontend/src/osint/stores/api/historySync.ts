@@ -1,5 +1,5 @@
 import { API_CONFIG } from '@/osint/config/api'
-import { useAuthStore } from '@/osint/stores/authStore'
+import { getOsintAccessToken } from '@/osint/auth'
 import type { Message as TMessage } from '@/osint/types'
 
 interface FetchHistoryOptions {
@@ -157,16 +157,7 @@ export function dedupeMessagesByCanonicalKey(messages: TMessage[]): TMessage[] {
 }
 
 function getAuthToken(): string | null {
-  const token = useAuthStore.getState().token
-  if (token) return token
-  try {
-    const raw = localStorage.getItem('youmind-auth')
-    if (!raw) return null
-    const parsed = JSON.parse(raw)
-    return parsed?.state?.token || null
-  } catch {
-    return null
-  }
+  return getOsintAccessToken()
 }
 
 /**

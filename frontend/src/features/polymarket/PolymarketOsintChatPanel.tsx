@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Loader2, RefreshCw, ShieldCheck } from 'lucide-react'
-import { getMe, getStoredToken } from '@/lib/authApi'
+import { useOsintAuth } from '@/osint/auth'
 import { cn } from '@/lib/utils'
-import { useAuthStore } from '@/osint/stores/authStore'
 import { useAppStore } from '@/osint/stores/apiStore'
 import { useToast } from '@/osint/components/ui/Feedback'
 import AIChatBoxNew, { type ChatMessage, type Attachment } from '@/osint/components/AIChatBoxNew'
@@ -54,8 +53,7 @@ export function PolymarketOsintChatPanel({ savedEventId, sessionId, eventTitle }
     executeIntelligenceSkill,
   } = useAppStore()
 
-  const [syncReady, setSyncReady] = useState(false)
-  const [syncErr, setSyncErr] = useState<string | null>(null)
+  const { user, ready } = useOsintAuth()
   const [activeSkill, setActiveSkill] = useState<IntelligenceSkill | null>(null)
   const [showSkillModal, setShowSkillModal] = useState(false)
   const [skillInitialValues, setSkillInitialValues] = useState<Record<string, any> | undefined>(undefined)
@@ -80,38 +78,8 @@ export function PolymarketOsintChatPanel({ savedEventId, sessionId, eventTitle }
     }
   }, [sessionId, savedEventId, fetchMessagesBySession])
 
-  // 与主站登录同步到 osint store
-  useEffect(() => {
-    let cancelled = false
-    ;(async () => {
-      const token = getStoredToken()
-      if (!token) {
-        setSyncErr('请先登录以使用 AI 对话')
-        setSyncReady(false)
-        return
-      }
-      try {
-        const me = await getMe()
-        if (!me.id) {
-          setSyncErr('请先登录')
-          setSyncReady(false)
-          return
-        }
-        useAuthStore.getState().setToken(token)
-        useAuthStore.getState().setUser({ id: me.id, email: me.email, name: me.name || me.username })
-        if (!cancelled) {
-          setSyncErr(null)
-          setSyncReady(true)
-        }
-      } catch (e) {
-        if (!cancelled) setSyncErr(e instanceof Error ? e.message : String(e))
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
+  const syncReady = ready && !!user
+  const syncErr = !ready ? null : user ? null : '请先登录以使用 AI 对话'
   useEffect(() => {
     if (!syncReady) return
     void fetchIntelligenceSkills()

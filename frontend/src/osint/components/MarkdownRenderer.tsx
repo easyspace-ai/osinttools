@@ -1,13 +1,39 @@
-import { memo } from 'react'
+import { memo, useCallback, useRef } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import { Heading2, Link } from 'lucide-react'
 
-export const MarkdownRenderer = memo(function MarkdownRenderer({ content }: { content: string }) {
+const isHashHref = (href?: string): href is string =>
+  typeof href === 'string' && href.startsWith('#') && href.length > 1
+
+const resolveHashTarget = (root: HTMLElement | null, hash: string): HTMLElement | null => {
+  const id = decodeURIComponent(hash.slice(1))
+  const escaped =
+    typeof CSS !== 'undefined' && typeof CSS.escape === 'function'
+      ? CSS.escape(id)
+      : id.replace(/([!"#$%&'()*+,./:;<=>?@[\\\]^`{|}~])/g, '\\$1')
   return (
-    <div className="anything-markdown font-normal text-[14px] w-full overflow-hidden">
+    root?.querySelector<HTMLElement>(`#${escaped}`) ??
+    document.getElementById(id)
+  )
+}
+
+export const MarkdownRenderer = memo(function MarkdownRenderer({ content }: { content: string }) {
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  const handleHashLinkClick = useCallback(
+    (event: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+      event.preventDefault()
+      const target = resolveHashTarget(containerRef.current, href)
+      target?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    },
+    [],
+  )
+
+  return (
+    <div ref={containerRef} className="anything-markdown font-normal text-[14px] w-full overflow-hidden">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
@@ -175,9 +201,37 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({ content }: { co
               </code>
             )
           },
-          a({ node, children, href, ...props }) {
+          a({ node, children, href, onClick, ...props }) {
+            const linkClassName =
+              'text-indigo-600 hover:text-indigo-800 underline decoration-indigo-300 underline-offset-2 transition-colors'
+
+            if (isHashHref(href)) {
+              return (
+                <a
+                  href={href}
+                  className={linkClassName}
+                  onClick={(event) => {
+                    onClick?.(event)
+                    if (!event.defaultPrevented) {
+                      handleHashLinkClick(event, href)
+                    }
+                  }}
+                  {...props}
+                >
+                  {children}
+                </a>
+              )
+            }
+
             return (
-              <a href={href} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:text-indigo-800 underline decoration-indigo-300 underline-offset-2 transition-colors" {...props}>
+              <a
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={linkClassName}
+                onClick={onClick}
+                {...props}
+              >
                 {children}
               </a>
             )

@@ -13,15 +13,25 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-const authCookieName = "gusheng_auth_token"
+const authCookieName = "osint_auth_token"
+const legacyAuthCookieName = "gusheng_auth_token"
 
-func setAuthCookie(c *gin.Context, token string) {
+func setAuthCookie(c *gin.Context, token string, maxAgeSec int) {
 	c.SetSameSite(http.SameSiteLaxMode)
-	c.SetCookie(authCookieName, token, 86400*7, "/", "", false, true)
+	if maxAgeSec <= 0 {
+		maxAgeSec = 86400 * 365
+	}
+	c.SetCookie(authCookieName, token, maxAgeSec, "/", "", false, true)
+	clearAuthCookieName(c, legacyAuthCookieName)
+}
+
+func clearAuthCookieName(c *gin.Context, name string) {
+	c.SetCookie(name, "", -1, "/", "", false, true)
 }
 
 func clearAuthCookie(c *gin.Context) {
-	c.SetCookie(authCookieName, "", -1, "/", "", false, true)
+	clearAuthCookieName(c, authCookieName)
+	clearAuthCookieName(c, legacyAuthCookieName)
 }
 
 // AuthHandler 认证相关 HTTP 处理
@@ -57,8 +67,9 @@ type registerRequest struct {
 }
 
 type loginRequest struct {
-	Username string `json:"username" binding:"required"`
-	Password string `json:"password" binding:"required"`
+	Username   string `json:"username" binding:"required"`
+	Password   string `json:"password" binding:"required"`
+	RememberMe *bool  `json:"remember_me"`
 }
 
 type userResponse struct {
@@ -172,7 +183,15 @@ func (h *AuthHandler) login(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"detail": "username and password required"})
 		return
 	}
-	result, err := h.svc.Login(auth.LoginInput{Username: req.Username, Password: req.Password})
+	rememberMe := true
+	if req.RememberMe != nil {
+		rememberMe = *req.RememberMe
+	}
+	result, err := h.svc.Login(auth.LoginInput{
+		Username:   req.Username,
+		Password:   req.Password,
+		RememberMe: rememberMe,
+	})
 	if err != nil {
 		if err == auth.ErrInvalidCredentials {
 			c.JSON(http.StatusUnauthorized, gin.H{"detail": "Incorrect username or password"})
@@ -182,10 +201,11 @@ func (h *AuthHandler) login(c *gin.Context) {
 		return
 	}
 	// Cookie 须在 JSON 响应之前写入，否则浏览器收不到（River UI /jobs 依赖此 Cookie）
-	setAuthCookie(c, result.AccessToken)
+	setAuthCookie(c, result.AccessToken, result.ExpiresIn)
 	c.JSON(http.StatusOK, gin.H{
 		"access_token": result.AccessToken,
 		"token_type":   result.TokenType,
+		"expires_in":   result.ExpiresIn,
 	})
 }
 
@@ -207,7 +227,7 @@ func (h *AuthHandler) syncCookie(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"detail": "missing token"})
 		return
 	}
-	setAuthCookie(c, token)
+	setAuthCookie(c, token, 86400*365)
 	c.JSON(http.StatusOK, gin.H{"status": "ok"})
 }
 

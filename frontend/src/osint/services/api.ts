@@ -1,33 +1,8 @@
 import { API_CONFIG, API_ENDPOINTS } from '@/osint/config/api'
-import { useAuthStore } from '@/osint/stores/authStore'
-
-let redirectingToLogin = false
+import { getOsintAccessToken, handleUnauthorizedResponse } from '@/osint/auth'
 
 function getAuthToken(): string | null {
-  const token = useAuthStore.getState().token
-  if (token) return token
-  try {
-    const raw = localStorage.getItem('youmind-auth')
-    if (!raw) return null
-    const parsed = JSON.parse(raw)
-    return parsed?.state?.token || null
-  } catch {
-    return null
-  }
-}
-
-function handleUnauthorizedResponse(status: number) {
-  if (status !== 401) return
-  useAuthStore.getState().logout()
-  if (typeof window === 'undefined' || redirectingToLogin) return
-  const isAuthPage =
-    window.location.pathname.startsWith('/login') ||
-    window.location.pathname.startsWith('/register')
-  if (isAuthPage) return
-  redirectingToLogin = true
-  const next = `${window.location.pathname}${window.location.search}${window.location.hash}`
-  const redirect = encodeURIComponent(next || '/')
-  window.location.replace(`/login?redirect=${redirect}&reason=expired`)
+  return getOsintAccessToken()
 }
 
 // 通用请求方法
@@ -484,22 +459,9 @@ export const promptTemplateApi = {
 
 // ============ 认证 API ============
 export const authApi = {
-  login: async (data: any) => {
-    const formData = new URLSearchParams()
-    formData.append('username', data.username)
-    formData.append('password', data.password)
-
-    const response = await fetch(`${API_CONFIG.baseUrl}/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: formData.toString(),
-    })
-    if (!response.ok) {
-      const errJson = await response.json()
-      console.error('Login 422 Detail:', errJson)
-      throw new Error(JSON.stringify(errJson) || '登录失败')
-    }
-    return response.json()
+  login: async (data: { username: string; password: string; remember_me?: boolean }) => {
+    const { loginRequest } = await import('@/osint/auth')
+    return loginRequest(data.username, data.password, data.remember_me !== false)
   },
   register: (data: any) =>
     request<any>('/auth/register', { method: 'POST', body: JSON.stringify(data) }),

@@ -4,6 +4,7 @@ import { ArrowRight, FileText, Search, Wand2, Code } from 'lucide-react'
 import { cn } from '@/osint/utils'
 import { useAppStore } from '@/osint/stores/apiStore'
 import { queryClient } from '@/osint/lib/queryClient'
+import { LogoMark } from '@/components/Logo'
 
 const quickSkills = [
   { id: '1', name: '智能写作', icon: FileText,  color: 'from-orange-400 to-amber-500' },
@@ -104,11 +105,7 @@ export default function HomePage() {
 
         {/* ── Header ───────────────────────────────────── */}
         <div className="flex flex-col items-center gap-3 text-center">
-          <img
-            src="/logo.jpg"
-            alt="MetaNote"
-            className="w-10 h-10 rounded-xl object-cover"
-          />
+          <LogoMark className="rounded-xl" />
           <h1 className="font-bold text-2xl text-gray-900 tracking-tight">
             有什么可以帮你的？
           </h1>

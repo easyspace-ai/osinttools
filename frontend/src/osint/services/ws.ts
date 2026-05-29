@@ -1,5 +1,5 @@
 // WebSocket 服务 - 连接后端 WS 代理
-import { useAuthStore } from '@/osint/stores/authStore'
+import { getOsintAccessToken } from '@/osint/auth'
 
 // WS 连接配置：统一使用 /api/ws/chat（与后端路由对齐）
 const WS_BASE_URL = (() => {
@@ -83,7 +83,7 @@ class SessionWebSocket {
     // 清理任何现有的超时定时器
     this.clearConnectionTimeout();
 
-    const token = useAuthStore.getState().token;
+    const token = getOsintAccessToken();
     if (!token) {
       this.callbacks.onError(new Error('未登录'), true);
       return;

@@ -1,5 +1,6 @@
 import * as React from "react";
-import { User, Mail, Lock, Eye, EyeOff, ShieldCheck, TrendingUp, Zap } from "lucide-react";
+import { User, Mail, Lock, Eye, EyeOff, ShieldCheck, Zap } from "lucide-react";
+import { LogoMark } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
@@ -73,9 +74,7 @@ export function RegisterPage({ onLoginClick, onRegisterSuccess }: RegisterPagePr
         >
           {/* Logo */}
           <div className="flex items-center gap-3 mb-10">
-            <div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center">
-              <TrendingUp size={20} className="text-white" />
-            </div>
+            <LogoMark />
             <div className="flex flex-col">
               <span className="text-xl font-bold text-gray-900 dark:text-white">Quantum Pro</span>
               <span className="text-gray-500 dark:text-gray-400 text-sm">专业量化投研平台</span>
@@ -267,9 +266,7 @@ export function RegisterPage({ onLoginClick, onRegisterSuccess }: RegisterPagePr
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.5, delay: 0.2 }}
             >
-              <div className="w-16 h-16 rounded-2xl bg-blue-600 flex items-center justify-center mx-auto mb-8">
-                <TrendingUp size={32} className="text-white" />
-              </div>
+              <LogoMark size="xl" className="rounded-2xl mx-auto mb-8" />
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
                 专业投研，从此刻开始
               </h2>

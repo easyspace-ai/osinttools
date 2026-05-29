@@ -1,8 +1,9 @@
 import * as React from "react";
-import { Mail, Eye, EyeOff, TrendingUp, Zap } from "lucide-react";
+import { Mail, Eye, EyeOff, Zap } from "lucide-react";
+import { LogoMark } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
-import { useAuth } from "@/contexts/AuthContext";
+import { useOsintAuth, useOsintAuthStore } from "@/osint/auth";
 import { cn } from "@/lib/utils";
 
 interface LoginPageProps {
@@ -10,7 +11,7 @@ interface LoginPageProps {
 }
 
 export function LoginPage({ onLoginSuccess }: LoginPageProps) {
-  const { login } = useAuth();
+  const { login } = useOsintAuth();
   const [showPassword, setShowPassword] = React.useState(false);
   const [loginId, setLoginId] = React.useState("");
   const [password, setPassword] = React.useState("");
@@ -27,10 +28,8 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
     }
     setPending(true);
     try {
-      await login(loginId.trim(), password);
-      if (!remember) {
-        /* token stays in localStorage; "remember me" could use sessionStorage — omitted for simplicity */
-      }
+      useOsintAuthStore.getState().setRememberMe(remember);
+      await login(loginId.trim(), password, remember);
       onLoginSuccess();
     } catch (err) {
       setError(err instanceof Error ? err.message : "登录失败");
@@ -51,9 +50,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
         >
           {/* Logo */}
           <div className="flex items-center gap-3 mb-10">
-            <div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center">
-              <TrendingUp size={20} className="text-white" />
-            </div>
+            <LogoMark />
             <div className="flex flex-col">
               <span className="text-xl font-bold text-gray-900 dark:text-white">HaiNa Studio</span>
               <span className="text-gray-500 dark:text-gray-400 text-sm">HaiNa投研平台</span>
@@ -178,9 +175,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.5, delay: 0.2 }}
             >
-              <div className="w-16 h-16 rounded-2xl bg-blue-600 flex items-center justify-center mx-auto mb-8">
-                <TrendingUp size={32} className="text-white" />
-              </div>
+              <LogoMark size="xl" className="rounded-2xl mx-auto mb-8" />
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
                 专业投研平台
               </h2>

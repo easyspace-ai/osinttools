@@ -1,6 +1,6 @@
 import { chatPreviewLog } from '@/osint/lib/chatPreviewLog'
 import { API_CONFIG, API_ENDPOINTS } from '@/osint/config/api'
-import { useAuthStore } from '@/osint/stores/authStore'
+import { getOsintAccessToken } from '@/osint/auth'
 
 const DB_NAME = 'osint-chat-preview'
 const STORE_NAME = 'blobs'
@@ -182,22 +182,7 @@ export async function seedCachedPreviewFromFile(
 }
 
 function getAuthToken(): string | null {
-  const fromStore = useAuthStore.getState().token
-  if (fromStore) return fromStore
-  try {
-    const gusheng = localStorage.getItem('gusheng_auth_token')
-    if (gusheng) return gusheng
-    const authStorage = localStorage.getItem('youmind-auth')
-    if (authStorage) {
-      const authData = JSON.parse(authStorage)
-      if (authData?.state?.token) {
-        return authData.state.token
-      }
-    }
-  } catch {
-    // ignore
-  }
-  return localStorage.getItem('token') || sessionStorage.getItem('token') || null
+  return getOsintAccessToken()
 }
 
 function buildArtifactFetchUrl(resourceId: string, kind: 'preview' | 'download'): string {

@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { changePassword } from "@/lib/authApi";
 import { useToast } from "@/components/ui/toast";
+import { LogoIcon } from "@/components/Logo";
 
 // Breadcrumb 配置
 const BREADCRUMB_LABELS: Record<string, string> = {
@@ -42,7 +43,7 @@ function WorkspaceSwitcher() {
   return (
     <button className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
       <div className="w-5 h-5 rounded-md bg-gradient-to-br from-blue-600 to-blue-700 flex items-center justify-center">
-        <span className="text-white text-[10px] font-bold">Q</span>
+        <LogoIcon className="size-3 text-white" />
       </div>
       {/* <span className="text-xs font-semibold text-gray-700 dark:text-gray-200">
         量化平台

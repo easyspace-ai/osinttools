@@ -3,9 +3,8 @@ import { createPortal } from 'react-dom'
 import { Download, FileText, Loader2, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { getStoredToken } from '@/lib/authApi'
+import { getOsintAccessToken } from '@/osint/auth'
 import { API_ENDPOINTS } from '@/osint/config/api'
-import { useAuthStore } from '@/osint/stores/authStore'
 import ArtifactPreviewPanel from '@/osint/components/ArtifactPreviewPanel'
 import { ToastProvider } from '@/osint/components/ui/Feedback'
 import type { DashboardArtifact } from '@/lib/dashboardApi'
@@ -51,10 +50,6 @@ export function DashboardArtifactsPanel({
   const viewing = artifacts.find((a) => a.id === previewId)
 
   const openPreview = useCallback((item: DashboardArtifact) => {
-    const token = getStoredToken()
-    if (token) {
-      useAuthStore.getState().setToken(token)
-    }
     setPreviewId(item.id)
     setPreviewExpanded(false)
   }, [])
@@ -66,7 +61,7 @@ export function DashboardArtifactsPanel({
 
   const handleDownload = useCallback((id: string, name: string, e: React.MouseEvent) => {
     e.stopPropagation()
-    const token = getStoredToken() || useAuthStore.getState().token
+    const token = getOsintAccessToken()
     const url = new URL(API_ENDPOINTS.projectArtifactDownload(id), window.location.origin)
     if (token) url.searchParams.set('token', token)
     const a = document.createElement('a')
