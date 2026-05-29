@@ -4,17 +4,13 @@ import {
   Trash2,
   Pencil,
   GripVertical,
-  ShieldCheck,
-  Search,
-  Database,
-  Newspaper,
   RotateCcw,
   ChevronUp,
   ChevronDown,
   X,
-  Check,
   Puzzle,
 } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -29,273 +25,27 @@ import {
 import { intelligenceSkillApi } from "@/osint/services/api";
 import type { IntelligenceSkill } from "@/osint/types";
 import { isBuiltinIntelligenceSkill } from "@/osint/constants/builtinIntelligenceSkills";
-
-const skillIconMap: Record<string, React.ReactNode> = {
-  ShieldCheck: <ShieldCheck size={14} />,
-  Search: <Search size={14} />,
-  Database: <Database size={14} />,
-  Newspaper: <Newspaper size={14} />,
-};
-
-/* ==================== Skill Edit Modal ==================== */
-
-const defaultFormSchema = JSON.stringify(
-  {
-    fields: [
-      { name: "target", label: "目标", type: "textarea", placeholder: "请输入目标...", required: true },
-    ],
-  },
-  null,
-  2
-);
-
-const defaultPromptTemplate = `请基于以下信息进行分析：\n\n## 目标\n{{target}}\n\n请给出详细的分析报告。`;
-
-function SkillEditModal({
-  open,
-  onClose,
-  mode,
-  initialData,
-  onSubmit,
-}: {
-  open: boolean;
-  onClose: () => void;
-  mode: "create" | "edit";
-  initialData?: IntelligenceSkill;
-  onSubmit: (data: {
-    key: string;
-    name: string;
-    description?: string;
-    icon?: string;
-    form_schema: string;
-    prompt_template: string;
-    is_enabled: boolean;
-    sort_order: number;
-  }) => Promise<void>;
-}) {
-  const [saving, setSaving] = React.useState(false);
-  const [key, setKey] = React.useState("");
-  const [name, setName] = React.useState("");
-  const [description, setDescription] = React.useState("");
-  const [icon, setIcon] = React.useState("");
-  const [formSchema, setFormSchema] = React.useState(defaultFormSchema);
-  const [promptTemplate, setPromptTemplate] = React.useState(defaultPromptTemplate);
-  const [isEnabled, setIsEnabled] = React.useState(true);
-  const [sortOrder, setSortOrder] = React.useState(0);
-  const [schemaError, setSchemaError] = React.useState("");
-
-  React.useEffect(() => {
-    if (!open) return;
-    setKey(initialData?.key || "");
-    setName(initialData?.name || "");
-    setDescription(initialData?.description || "");
-    setIcon(initialData?.icon || "");
-    try {
-      const schema = initialData?.form_schema
-        ? JSON.stringify(JSON.parse(initialData.form_schema), null, 2)
-        : defaultFormSchema;
-      setFormSchema(schema);
-    } catch {
-      setFormSchema(initialData?.form_schema || defaultFormSchema);
-    }
-    setPromptTemplate(initialData?.prompt_template || defaultPromptTemplate);
-    setIsEnabled(initialData?.is_enabled ?? true);
-    setSortOrder(initialData?.sort_order || 0);
-    setSchemaError("");
-  }, [open, initialData]);
-
-  const validateSchema = (s: string): boolean => {
-    try {
-      const parsed = JSON.parse(s);
-      if (!parsed.fields || !Array.isArray(parsed.fields)) {
-        setSchemaError("form_schema 必须包含 fields 数组");
-        return false;
-      }
-      for (const f of parsed.fields) {
-        if (!f.name || !f.label || !f.type) {
-          setSchemaError("每个字段必须包含 name, label, type");
-          return false;
-        }
-      }
-      setSchemaError("");
-      return true;
-    } catch {
-      setSchemaError("无效的 JSON 格式");
-      return false;
-    }
-  };
-
-  if (!open) return null;
-
-  return (
-    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent onOpenChange={onClose} className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{mode === "create" ? "新增情报技能" : "编辑情报技能"}</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4 mt-2">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">
-                唯一标识 Key <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={key}
-                onChange={(e) => setKey(e.target.value)}
-                disabled={mode === "edit"}
-                className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-950 text-sm"
-                placeholder="例如：fact_check"
-              />
-              <p className="text-xs text-gray-400 mt-1">创建后不可修改</p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">
-                显示名称 <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-950 text-sm"
-                placeholder="例如：事实核查"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">图标标识</label>
-              <select
-                value={icon}
-                onChange={(e) => setIcon(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-950 text-sm"
-              >
-                <option value="">无图标</option>
-                <option value="ShieldCheck">ShieldCheck（核查）</option>
-                <option value="Search">Search（搜索）</option>
-                <option value="Database">Database（数据库）</option>
-                <option value="Newspaper">Newspaper（报纸）</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">排序</label>
-              <input
-                type="number"
-                value={sortOrder}
-                onChange={(e) => setSortOrder(Number(e.target.value))}
-                className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-950 text-sm"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">描述</label>
-            <input
-              type="text"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-950 text-sm"
-              placeholder="技能的简要描述..."
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">
-              表单 Schema (JSON) <span className="text-red-500">*</span>
-            </label>
-            <textarea
-              value={formSchema}
-              onChange={(e) => {
-                setFormSchema(e.target.value);
-                validateSchema(e.target.value);
-              }}
-              className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-950 text-sm min-h-[160px] resize-none font-mono"
-              placeholder='{"fields":[{"name":"target","label":"目标","type":"textarea","required":true}]}'
-            />
-            {schemaError && <p className="text-xs text-red-500 mt-1">{schemaError}</p>}
-            <p className="text-xs text-gray-400 mt-1">
-              支持字段类型：text, textarea, select, multi_select, number, date, checkbox
-            </p>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">
-              提示词模板 <span className="text-red-500">*</span>
-            </label>
-            <textarea
-              value={promptTemplate}
-              onChange={(e) => setPromptTemplate(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-950 text-sm min-h-[160px] resize-none font-mono"
-              placeholder="使用 {{variable}} 作为表单变量占位符"
-            />
-            <p className="text-xs text-gray-400 mt-1">
-              可用占位符：&#123;&#123;field_name&#125;&#125; 对应表单字段
-            </p>
-          </div>
-
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={isEnabled}
-              onChange={(e) => setIsEnabled(e.target.checked)}
-              className="w-4 h-4 rounded border-gray-300 text-blue-600"
-            />
-            <span className="text-sm">启用此技能</span>
-          </label>
-        </div>
-        <DialogFooter>
-          <Button variant="ghost" onClick={onClose}>
-            取消
-          </Button>
-          <Button
-            disabled={saving || !key.trim() || !name.trim() || !!schemaError || !promptTemplate.trim()}
-            onClick={async () => {
-              if (!key.trim() || !name.trim() || !validateSchema(formSchema) || !promptTemplate.trim()) return;
-              setSaving(true);
-              try {
-                await onSubmit({
-                  key: key.trim(),
-                  name: name.trim(),
-                  description: description.trim() || undefined,
-                  icon: icon.trim() || undefined,
-                  form_schema: JSON.stringify(JSON.parse(formSchema)),
-                  prompt_template: promptTemplate.trim(),
-                  is_enabled: isEnabled,
-                  sort_order: sortOrder,
-                });
-                onClose();
-              } finally {
-                setSaving(false);
-              }
-            }}
-          >
-            {saving ? "保存中…" : mode === "create" ? "确认创建" : "保存修改"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-/* ==================== SkillAdminManager ==================== */
+import {
+  SkillEditorWorkspace,
+  type SkillEditorPayload,
+} from "./skillPlayground/SkillEditorWorkspace";
+import { SkillIcon } from "./skillPlayground/SkillIcon";
 
 export function SkillAdminManager() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
   const [groups, setGroups] = React.useState<SkillGroupItem[]>([]);
   const [skills, setSkills] = React.useState<IntelligenceSkill[]>([]);
   const [loading, setLoading] = React.useState(false);
   const [activeView, setActiveView] = React.useState<string>("");
 
-  // Group modal
   const [groupModalOpen, setGroupModalOpen] = React.useState(false);
   const [editingGroup, setEditingGroup] = React.useState<SkillGroupItem | null>(null);
   const [groupForm, setGroupForm] = React.useState({ name: "", description: "" });
 
-  // Skill modal
-  const [skillModalOpen, setSkillModalOpen] = React.useState(false);
-  const [editingSkill, setEditingSkill] = React.useState<IntelligenceSkill | null>(null);
-
+  const [editorOpen, setEditorOpen] = React.useState(false);
+  const [editorMode, setEditorMode] = React.useState<"create" | "edit">("edit");
+  const [editorSkillId, setEditorSkillId] = React.useState<string | null>(null);
 
   const loadData = React.useCallback(async () => {
     setLoading(true);
@@ -307,8 +57,12 @@ export function SkillAdminManager() {
         if (prev && g.some((gr) => gr.id === prev)) return prev;
         return g[0]?.id ?? "";
       });
-    } catch (e: any) {
-      toast({ type: "error", title: "加载失败", description: e.message });
+    } catch (e: unknown) {
+      toast({
+        type: "error",
+        title: "加载失败",
+        description: e instanceof Error ? e.message : String(e),
+      });
     } finally {
       setLoading(false);
     }
@@ -318,7 +72,19 @@ export function SkillAdminManager() {
     loadData();
   }, [loadData]);
 
-  /* ---------- group CRUD ---------- */
+  React.useEffect(() => {
+    const tab = searchParams.get("tab");
+    const skillId = searchParams.get("skillId");
+    if (tab === "playground" || skillId) {
+      if (skillId) {
+        setEditorMode("edit");
+        setEditorSkillId(skillId);
+        setEditorOpen(true);
+      }
+      setSearchParams({ tab: "skills" }, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
+
   const openCreateGroup = () => {
     setEditingGroup(null);
     setGroupForm({ name: "", description: "" });
@@ -354,8 +120,12 @@ export function SkillAdminManager() {
       }
       setGroupModalOpen(false);
       loadData();
-    } catch (e: any) {
-      toast({ type: "error", title: "保存失败", description: e.message });
+    } catch (e: unknown) {
+      toast({
+        type: "error",
+        title: "保存失败",
+        description: e instanceof Error ? e.message : String(e),
+      });
     }
   };
 
@@ -371,18 +141,21 @@ export function SkillAdminManager() {
         });
       }
       loadData();
-    } catch (e: any) {
-      toast({ type: "error", title: "删除失败", description: e.message });
+    } catch (e: unknown) {
+      toast({
+        type: "error",
+        title: "删除失败",
+        description: e instanceof Error ? e.message : String(e),
+      });
     }
   };
 
-  /* ---------- skill CRUD ---------- */
-  const handleCreateSkill = async (payload: Parameters<typeof intelligenceSkillApi.create>[0]) => {
+  const handleCreateSkill = async (payload: SkillEditorPayload, groupId: string) => {
     const created = await intelligenceSkillApi.create({
       ...payload,
-      group_id: activeView || undefined,
+      group_id: groupId || undefined,
     });
-    const group = groups.find((g) => g.id === activeView);
+    const group = groups.find((g) => g.id === groupId);
     if (group && created?.key && !group.skill_ids.includes(created.key)) {
       await updateSkillGroup(group.id, {
         name: group.name,
@@ -390,20 +163,14 @@ export function SkillAdminManager() {
         skill_ids: [...group.skill_ids, created.key],
       });
     }
-    toast({ type: "success", title: "技能已创建" });
-    await loadData();
+    return created;
   };
 
-  const handleUpdateSkill = async (
-    id: string,
-    payload: Parameters<typeof intelligenceSkillApi.update>[1]
-  ) => {
+  const handleUpdateSkill = async (id: string, payload: SkillEditorPayload, groupId: string) => {
     await intelligenceSkillApi.update(id, {
       ...payload,
-      group_id: activeView || undefined,
+      group_id: groupId || undefined,
     });
-    toast({ type: "success", title: "技能已更新" });
-    await loadData();
   };
 
   const handleDeleteSkill = async (skill: IntelligenceSkill) => {
@@ -412,8 +179,12 @@ export function SkillAdminManager() {
       await intelligenceSkillApi.delete(skill.id);
       toast({ type: "success", title: "技能已删除" });
       await loadData();
-    } catch (e: any) {
-      toast({ type: "error", title: "删除失败", description: e.message });
+    } catch (e: unknown) {
+      toast({
+        type: "error",
+        title: "删除失败",
+        description: e instanceof Error ? e.message : String(e),
+      });
     }
   };
 
@@ -423,20 +194,26 @@ export function SkillAdminManager() {
       await intelligenceSkillApi.restoreDefault(skill.id);
       toast({ type: "success", title: "已恢复默认" });
       await loadData();
-    } catch (e: any) {
-      toast({ type: "error", title: "恢复失败", description: e.message });
+    } catch (e: unknown) {
+      toast({
+        type: "error",
+        title: "恢复失败",
+        description: e instanceof Error ? e.message : String(e),
+      });
     }
   };
 
-  /* ---------- group skill ordering ---------- */
   const activeGroup = groups.find((g) => g.id === activeView);
 
   const getSkillsInGroup = (g: SkillGroupItem) => {
-    // skill_ids stores skill keys; resolve to current user's skill objects
     const map = new Map(skills.map((s) => [s.key, s]));
-    return g.skill_ids
-      .map((key) => map.get(key))
-      .filter(Boolean) as IntelligenceSkill[];
+    return g.skill_ids.map((key) => map.get(key)).filter(Boolean) as IntelligenceSkill[];
+  };
+
+  const openEditor = (mode: "create" | "edit", skillId?: string) => {
+    setEditorMode(mode);
+    setEditorSkillId(skillId ?? null);
+    setEditorOpen(true);
   };
 
   const handleMoveSkill = async (g: SkillGroupItem, index: number, direction: -1 | 1) => {
@@ -451,8 +228,12 @@ export function SkillAdminManager() {
         skill_ids: newIds,
       });
       setGroups((prev) => prev.map((gr) => (gr.id === g.id ? { ...gr, skill_ids: newIds } : gr)));
-    } catch (e: any) {
-      toast({ type: "error", title: "调整失败", description: e.message });
+    } catch (e: unknown) {
+      toast({
+        type: "error",
+        title: "调整失败",
+        description: e instanceof Error ? e.message : String(e),
+      });
     }
   };
 
@@ -465,15 +246,19 @@ export function SkillAdminManager() {
         skill_ids: newIds,
       });
       setGroups((prev) => prev.map((gr) => (gr.id === g.id ? { ...gr, skill_ids: newIds } : gr)));
-    } catch (e: any) {
-      toast({ type: "error", title: "移除失败", description: e.message });
+    } catch (e: unknown) {
+      toast({
+        type: "error",
+        title: "移除失败",
+        description: e instanceof Error ? e.message : String(e),
+      });
     }
   };
 
+  const groupSkills = activeGroup ? getSkillsInGroup(activeGroup) : [];
 
   return (
     <div className="flex h-full">
-      {/* Left sidebar — groups */}
       <aside className="w-56 flex-shrink-0 border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 flex flex-col">
         <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-800">
           <div className="flex items-center justify-between">
@@ -533,7 +318,6 @@ export function SkillAdminManager() {
         </nav>
       </aside>
 
-      {/* Right content */}
       <main className="flex-1 min-w-0 overflow-auto bg-gray-50 dark:bg-gray-950 p-6">
         {activeGroup ? (
           <div>
@@ -542,23 +326,20 @@ export function SkillAdminManager() {
                 <h1 className="text-xl font-bold text-gray-900 dark:text-white">{activeGroup.name}</h1>
                 <p className="text-sm text-gray-500 mt-1">{activeGroup.description || "管理分组内的技能顺序"}</p>
               </div>
-              <Button
-                onClick={() => { setEditingSkill(null); setSkillModalOpen(true); }}
-                className="gap-1.5"
-              >
+              <Button onClick={() => openEditor("create")} className="gap-1.5">
                 <Plus size={16} />
                 新建技能
               </Button>
             </div>
 
-            {getSkillsInGroup(activeGroup).length === 0 ? (
+            {groupSkills.length === 0 ? (
               <div className="text-center py-16">
                 <Puzzle size={24} className="mx-auto mb-3 text-gray-300" />
                 <p className="text-sm text-gray-400">分组内暂无技能，请点击「新建技能」</p>
               </div>
             ) : (
               <div className="space-y-2">
-                {getSkillsInGroup(activeGroup).map((item, idx) => (
+                {groupSkills.map((item, idx) => (
                   <div
                     key={item.id}
                     className={cn(
@@ -574,14 +355,14 @@ export function SkillAdminManager() {
                     <div
                       className={cn(
                         "w-8 h-8 rounded-lg flex items-center justify-center shrink-0",
-                        item.is_enabled
-                          ? "bg-blue-50 text-blue-600"
-                          : "bg-gray-100 text-gray-400"
+                        item.is_enabled ? "bg-blue-50 text-blue-600" : "bg-gray-100 text-gray-400"
                       )}
                     >
-                      {skillIconMap[item.icon || ""] || (
-                        <span className="text-xs font-bold">{item.name.charAt(0)}</span>
-                      )}
+                      <SkillIcon
+                        name={item.icon}
+                        size={14}
+                        fallback={<span className="text-xs font-bold">{item.name.charAt(0)}</span>}
+                      />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-0.5">
@@ -608,7 +389,7 @@ export function SkillAdminManager() {
                         </button>
                       )}
                       <button
-                        onClick={() => { setEditingSkill(item); setSkillModalOpen(true); }}
+                        onClick={() => openEditor("edit", item.id)}
                         className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400"
                         title="编辑"
                       >
@@ -656,7 +437,6 @@ export function SkillAdminManager() {
         )}
       </main>
 
-      {/* Group modal */}
       <Dialog open={groupModalOpen} onOpenChange={setGroupModalOpen}>
         <DialogContent onOpenChange={() => setGroupModalOpen(false)} className="max-w-md">
           <DialogHeader>
@@ -691,21 +471,20 @@ export function SkillAdminManager() {
         </DialogContent>
       </Dialog>
 
-      {/* Skill modal */}
-      <SkillEditModal
-        open={skillModalOpen}
-        onClose={() => setSkillModalOpen(false)}
-        mode={editingSkill ? "edit" : "create"}
-        initialData={editingSkill || undefined}
-        onSubmit={async (payload) => {
-          if (editingSkill) {
-            await handleUpdateSkill(editingSkill.id, payload);
-          } else {
-            await handleCreateSkill(payload);
-          }
-          setSkillModalOpen(false);
-          setEditingSkill(null);
+      <SkillEditorWorkspace
+        open={editorOpen}
+        onClose={() => {
+          setEditorOpen(false);
+          setEditorSkillId(null);
         }}
+        groups={groups}
+        allSkills={skills}
+        initialGroupId={activeView}
+        initialSkillId={editorSkillId}
+        mode={editorMode}
+        onSaved={loadData}
+        onCreate={handleCreateSkill}
+        onUpdate={handleUpdateSkill}
       />
     </div>
   );

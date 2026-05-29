@@ -26,6 +26,7 @@
     "dotenv": "^17.2.3",
     "express": "^4.21.2",
     "framer-motion": "^12.38.0",
+    "handlebars": "^4.7.9",
     "i18next": "^26.0.4",
     "lightweight-charts": "5.1.0",
     "lucide-react": "^0.546.0",

@@ -1,9 +1,8 @@
 package intelligence
 
 import (
-	"encoding/json"
+	"errors"
 	"fmt"
-	"regexp"
 	"strings"
 	"time"
 
@@ -65,8 +64,9 @@ type SkillUpdateInput struct {
 	SortOrder      *int
 }
 
-// ExecuteInput 执行技能的输入
+// ExecuteInput 执行技能的输入（提示词须在客户端 Handlebars 渲染后传入 message）
 type ExecuteInput struct {
+	Message  string
 	FormData map[string]interface{}
 }
 
@@ -293,109 +293,15 @@ func (s *Service) DeleteSkill(_ string, id string) error {
 	return s.repo.Delete(id, SystemSkillsUserID)
 }
 
-// ExecuteSkill 执行技能：将表单数据填充到提示词模板中
+var ErrPromptRenderingClientSide = errors.New("prompt rendering is client-side; send pre-rendered message")
+
+// ExecuteSkill 校验技能存在并回传客户端已渲染的提示词（不在服务端渲染模板）。
 func (s *Service) ExecuteSkill(_ string, id string, in ExecuteInput) (*ExecuteResult, error) {
-	skill, err := s.repo.GetByID(id, SystemSkillsUserID)
-	if err != nil {
+	if strings.TrimSpace(in.Message) == "" {
+		return nil, ErrPromptRenderingClientSide
+	}
+	if _, err := s.repo.GetByID(id, SystemSkillsUserID); err != nil {
 		return nil, err
 	}
-
-	message, err := renderPrompt(skill.PromptTemplate, in.FormData)
-	if err != nil {
-		return nil, fmt.Errorf("failed to render prompt: %w", err)
-	}
-
-	return &ExecuteResult{Message: message}, nil
-}
-
-// renderPrompt 将表单数据渲染进提示词模板
-// 支持 {{variable}} 占位符，以及 {{#if variable}}...{{/if}} 条件渲染
-func renderPrompt(template string, data map[string]interface{}) (string, error) {
-	result := template
-
-	// 处理 {{#if variable}}...{{/if}} 条件块
-	ifRegex := regexp.MustCompile(`\{\{#if\s+(\w+)\}\}([\s\S]*?)\{\{/if\}\}`)
-	result = ifRegex.ReplaceAllStringFunc(result, func(match string) string {
-		submatches := ifRegex.FindStringSubmatch(match)
-		if len(submatches) < 3 {
-			return match
-		}
-		varName := submatches[1]
-		content := submatches[2]
-
-		val, exists := data[varName]
-		if !exists || val == nil {
-			return ""
-		}
-
-		// 检查值是否为空
-		switch v := val.(type) {
-		case string:
-			if strings.TrimSpace(v) == "" {
-				return ""
-			}
-		case []interface{}:
-			if len(v) == 0 {
-				return ""
-			}
-		case []string:
-			if len(v) == 0 {
-				return ""
-			}
-		}
-
-		return content
-	})
-
-	// 处理 {{variable}} 简单占位符
-	varRegex := regexp.MustCompile(`\{\{(\w+)\}\}`)
-	result = varRegex.ReplaceAllStringFunc(result, func(match string) string {
-		submatches := varRegex.FindStringSubmatch(match)
-		if len(submatches) < 2 {
-			return match
-		}
-		varName := submatches[1]
-
-		val, exists := data[varName]
-		if !exists || val == nil {
-			return match
-		}
-
-		return formatValue(val)
-	})
-
-	return result, nil
-}
-
-func formatValue(val interface{}) string {
-	switch v := val.(type) {
-	case string:
-		return v
-	case float64:
-		// JSON numbers unmarshal as float64
-		if v == float64(int64(v)) {
-			return fmt.Sprintf("%d", int64(v))
-		}
-		return fmt.Sprintf("%g", v)
-	case int:
-		return fmt.Sprintf("%d", v)
-	case int64:
-		return fmt.Sprintf("%d", v)
-	case bool:
-		if v {
-			return "是"
-		}
-		return "否"
-	case []interface{}:
-		var parts []string
-		for _, item := range v {
-			parts = append(parts, formatValue(item))
-		}
-		return strings.Join(parts, ", ")
-	case []string:
-		return strings.Join(v, ", ")
-	default:
-		b, _ := json.Marshal(v)
-		return string(b)
-	}
+	return &ExecuteResult{Message: strings.TrimSpace(in.Message)}, nil
 }

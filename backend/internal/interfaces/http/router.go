@@ -181,10 +181,12 @@ func Wire(ctx context.Context, cfg *config.Config, db *persistence.DB) (*WireRes
 
 	// 管理后台服务
 	adminHandler := NewAdminHandler(adminSvc, roleSvc, skillGroupSvc, userRoleRepo, settingsRepo)
+	skillAssistantHandler := NewSkillAssistantHandler(cfg)
 	adminGroup := api.Group("/admin")
 	adminGroup.Use(AuthMiddleware(authSvc))
 	adminGroup.Use(AdminMiddleware())
 	adminHandler.RegisterRoutes(adminGroup)
+	skillAssistantHandler.RegisterRoutes(adminGroup)
 
 	// 系统首次启动时：从 data/skills/defaults + custom 确保默认技能组
 	if err := skillGroupSvc.EnsureDefaultGroups(cfg.SkillsDefaultsDir, cfg.SkillsCustomDir); err != nil {

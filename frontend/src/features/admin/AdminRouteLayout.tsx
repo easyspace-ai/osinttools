@@ -7,7 +7,6 @@ import {
   Puzzle,
   Lock,
   KeyRound,
-  Settings,
 } from "lucide-react";
 import { UserManager } from "./UserManager";
 import { RoleManager } from "./RoleManager";
@@ -19,7 +18,6 @@ const TABS = [
   { id: "users", label: "用户管理", icon: Users },
   { id: "roles", label: "权限管理", icon: Shield },
   { id: "skills", label: "技能管理", icon: Puzzle },
- 
   { id: "profile", label: "修改密码", icon: KeyRound },
 ];
 

@@ -52,6 +52,15 @@ type Config struct {
 	SkillsDefaultsDir string
 	// SkillsCustomDir 超级管理员覆盖/新增技能 JSON（见 data/skills/custom，合并时优先于 defaults）
 	SkillsCustomDir string
+
+	// DeepSeek 技能编写助手（OpenAI 兼容 /v1/chat/completions）
+	DeepSeek DeepSeekConfig
+}
+
+type DeepSeekConfig struct {
+	APIKey  string
+	BaseURL string
+	Model   string
 }
 
 type AISDKConfig struct {
@@ -161,6 +170,11 @@ func Load() *Config {
 		DashboardPushMinItems:      getEnvIntDefault("DASHBOARD_PUSH_MIN_ITEMS", 5),
 		SkillsDefaultsDir:          ResolveSkillsDefaultsDir(getEnv("SKILLS_DEFAULTS_DIR")),
 		SkillsCustomDir:            ResolveSkillsCustomDir(getEnv("SKILLS_CUSTOM_DIR")),
+		DeepSeek: DeepSeekConfig{
+			APIKey:  getEnv("DEEPSEEK_API_KEY"),
+			BaseURL: firstNonEmpty(getEnv("DEEPSEEK_BASE_URL"), "https://api.deepseek.com"),
+			Model:   firstNonEmpty(getEnv("DEEPSEEK_MODEL"), "deepseek-chat"),
+		},
 	}
 	if cfg.DatabaseURL == "" {
 		log.Fatal("DATABASE_URL is required (set in .env)")

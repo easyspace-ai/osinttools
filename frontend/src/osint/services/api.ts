@@ -460,11 +460,6 @@ export const intelligenceSkillApi = {
     request<any>(`/intelligence-skills/${id}/restore-default`, {
       method: 'POST',
     }),
-  execute: (id: string, formData: Record<string, any>) =>
-    request<{ message: string }>(`/intelligence-skills/${id}/execute`, {
-      method: 'POST',
-      body: JSON.stringify({ form_data: formData }),
-    }),
 }
 
 // ============ Prompt Template API ============

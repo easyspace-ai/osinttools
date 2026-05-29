@@ -186,10 +186,19 @@ function SkillModal({
               value={promptTemplate}
               onChange={e => setPromptTemplate(e.target.value)}
               className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all min-h-[160px] resize-none font-mono text-xs"
-              placeholder="使用 {{variable}} 作为表单变量占位符，使用 {{#if variable}}...{{/if}} 作为条件块"
+              placeholder='Handlebars：{{variable}}、{{#if field}}、{{#if (eq field "value")}}'
             />
             <p className="text-xs text-gray-400 mt-1">
-              可用占位符：&#123;&#123;field_name&#125;&#125; 对应表单字段。条件渲染：&#123;&#123;#if field_name&#125;&#125;...&#123;&#123;/if&#125;&#125;
+              模板使用{' '}
+              <a
+                href="https://handlebarsjs.com/zh/guide/"
+                className="text-blue-600 hover:underline"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Handlebars
+              </a>
+              ，在浏览器端渲染。
             </p>
           </div>
 

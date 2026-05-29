@@ -1,6 +1,7 @@
 package http
 
 import (
+	"errors"
 	"net/http"
 	"strings"
 
@@ -212,7 +213,8 @@ func (h *IntelligenceSkillHandler) deleteSkill(c *gin.Context) {
 }
 
 type executeIntelligenceSkillRequest struct {
-	FormData map[string]interface{} `json:"form_data" binding:"required"`
+	Message  string                 `json:"message" binding:"required"`
+	FormData map[string]interface{} `json:"form_data"`
 }
 
 func (h *IntelligenceSkillHandler) restoreSkillToDefault(c *gin.Context) {
@@ -250,10 +252,15 @@ func (h *IntelligenceSkillHandler) executeSkill(c *gin.Context) {
 	}
 
 	result, err := h.svc.ExecuteSkill(u.ID, c.Param("id"), intelligence.ExecuteInput{
+		Message:  req.Message,
 		FormData: req.FormData,
 	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"detail": err.Error()})
+		if errors.Is(err, intelligence.ErrPromptRenderingClientSide) {
+			c.JSON(http.StatusBadRequest, gin.H{"detail": err.Error()})
+			return
+		}
+		c.JSON(http.StatusNotFound, gin.H{"detail": "Intelligence skill not found"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": result.Message})

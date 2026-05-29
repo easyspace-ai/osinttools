@@ -503,8 +503,12 @@ updateSession: async (sessionId: string, title: string) => {
 
   executeIntelligenceSkill: async (id, formData) => {
     try {
-      const result = await intelligenceSkillApi.execute(id, formData)
-      return result.message
+      const skill = get().intelligenceSkills.find((item) => item.id === id)
+      if (!skill?.prompt_template) {
+        throw new Error('技能不存在或未加载模板')
+      }
+      const { renderPrompt } = await import('@/osint/lib/renderPrompt')
+      return renderPrompt(skill.prompt_template, formData)
     } catch (error: any) {
       set({ error: error.message })
       throw error
