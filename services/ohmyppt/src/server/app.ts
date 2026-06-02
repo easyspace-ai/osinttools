@@ -16,6 +16,9 @@ import {
 } from './runtime.js'
 import { GenerationService } from './generation-service.js'
 import type { GenerateChunkEvent } from '@shared/generation'
+import { subscribeGenerationChunks } from '../adapters/generation-chunk-bus.js'
+import { normalizeMessage } from '../ohmyppt/ipc/utils.js'
+import type { SessionRunState } from '../ohmyppt/ipc/context.js'
 import {
   accessDeniedResponse,
   requireUserId,
@@ -135,6 +138,32 @@ async function loadOwnedSession(
   return { session, access: 'ok' as const }
 }
 
+function mapActiveRun(state: SessionRunState | undefined) {
+  if (!state) return null
+  return {
+    runId: state.runId,
+    status: state.status,
+    progress: state.progress,
+    totalPages: state.totalPages,
+    mode: state.mode,
+    error: state.error,
+    startedAt: state.startedAt,
+    updatedAt: state.updatedAt
+  }
+}
+
+function resolveActiveRun(runtime: OhMyPptRuntime, sessionId: string) {
+  runtime.ipc.pruneFinishedSessionRunStates()
+  return mapActiveRun(runtime.ipc.sessionRunStates.get(sessionId))
+}
+
+async function writeGenerateChunkSSE(
+  stream: { writeSSE: (payload: { event?: string; data: string }) => Promise<void> },
+  chunk: GenerateChunkEvent
+): Promise<void> {
+  await stream.writeSSE({ event: chunk.type, data: JSON.stringify(chunk) })
+}
+
 export function createApp(cfg: ServiceConfig) {
   const app = new Hono()
 
@@ -222,7 +251,15 @@ export function createApp(cfg: ServiceConfig) {
       }
       const detail = await buildSessionDetail(runtime, sessionId)
       if (!detail?.session) return c.json({ error: 'session not found' }, 404)
-      return c.json({ session: detail.session, pages: detail.pages })
+      const storedMessages = await runtime.db.getSessionMessages(sessionId, { chatScope: 'main' })
+      return c.json({
+        session: detail.session,
+        pages: detail.pages,
+        activeRun: resolveActiveRun(runtime, sessionId),
+        messages: storedMessages.map((message) =>
+          normalizeMessage(message as unknown as Record<string, unknown>)
+        )
+      })
     } catch (err) {
       return c.json({ error: err instanceof Error ? err.message : String(err) }, 500)
     }
@@ -306,6 +343,96 @@ export function createApp(cfg: ServiceConfig) {
     } catch {
       return c.json({ error: 'page not found' }, 404)
     }
+  })
+
+  app.get('/v1/sessions/:id/messages', async (c) => {
+    const userId = requireUserId(c)
+    if (userId instanceof Response) return userId
+    try {
+      const runtime = await getOhMyPptRuntime(cfg)
+      const sessionId = c.req.param('id')
+      const owned = await loadOwnedSession(runtime, sessionId, userId)
+      if (owned.access !== 'ok') {
+        return accessDeniedResponse(c, owned.access)
+      }
+      const chatScope = c.req.query('chat_scope') === 'page' ? 'page' : 'main'
+      const pageId = c.req.query('page_id')?.trim() || undefined
+      const messages = await runtime.db.getSessionMessages(sessionId, {
+        chatScope,
+        pageId
+      })
+      return c.json({
+        messages: messages.map((message) =>
+          normalizeMessage(message as unknown as Record<string, unknown>)
+        )
+      })
+    } catch (err) {
+      return c.json({ error: err instanceof Error ? err.message : String(err) }, 500)
+    }
+  })
+
+  app.get('/v1/sessions/:id/generate/stream', async (c) => {
+    const userId = requireUserId(c)
+    if (userId instanceof Response) return userId
+    const sessionId = c.req.param('id')
+    const runtime = await getOhMyPptRuntime(cfg)
+    const owned = await loadOwnedSession(runtime, sessionId, userId)
+    if (owned.access !== 'ok') {
+      return accessDeniedResponse(c, owned.access)
+    }
+
+    return streamSSE(c, async (stream) => {
+      runtime.ipc.pruneFinishedSessionRunStates()
+      const state = runtime.ipc.sessionRunStates.get(sessionId)
+      const activeRun = mapActiveRun(state)
+      if (activeRun) {
+        await stream.writeSSE({
+          event: 'run_status',
+          data: JSON.stringify({ type: 'run_status', payload: activeRun })
+        })
+      }
+
+      if (state?.events.length) {
+        for (const chunk of state.events) {
+          await writeGenerateChunkSSE(stream, chunk)
+        }
+      }
+
+      if (!state || state.status !== 'running') {
+        await stream.writeSSE({ data: '[DONE]' })
+        return
+      }
+
+      let finished = false
+      const unsubscribe = subscribeGenerationChunks(sessionId, async (_sid, chunk) => {
+        await writeGenerateChunkSSE(stream, chunk)
+        if (chunk.type === 'run_completed' || chunk.type === 'run_error') {
+          finished = true
+        }
+      })
+
+      await new Promise<void>((resolve) => {
+        const timer = setInterval(() => {
+          const current = runtime.ipc.sessionRunStates.get(sessionId)
+          if (finished || !current || current.status !== 'running') {
+            clearInterval(timer)
+            resolve()
+          }
+        }, 400)
+
+        c.req.raw.signal.addEventListener(
+          'abort',
+          () => {
+            clearInterval(timer)
+            resolve()
+          },
+          { once: true }
+        )
+      })
+
+      unsubscribe()
+      await stream.writeSSE({ data: '[DONE]' })
+    })
   })
 
   app.post('/v1/sessions/:id/generate', async (c) => {

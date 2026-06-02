@@ -49,6 +49,8 @@ export interface PipelineEvent {
   result?: PipelineResult
 }
 
+export type PptxgenjsChatMessage = { role: 'user' | 'assistant'; content: string }
+
 async function streamPipelineSSE(
   path: string,
   init: RequestInit,
@@ -104,6 +106,17 @@ export const pptxgenjsApi = {
 
   listResources: (projectId: string) =>
     request<PptxgenjsResource[]>(`/projects/${projectId}/resources`),
+
+  getChat: (projectId: string) =>
+    request<{ messages: PptxgenjsChatMessage[] }>(`/projects/${projectId}/chat`).then(
+      (r) => r.messages || [],
+    ),
+
+  saveChat: (projectId: string, messages: PptxgenjsChatMessage[]) =>
+    request<{ ok: boolean }>(`/projects/${projectId}/chat`, {
+      method: 'PUT',
+      body: JSON.stringify({ messages }),
+    }),
 
   createProject: (body: {
     name?: string

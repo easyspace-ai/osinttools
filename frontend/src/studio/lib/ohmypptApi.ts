@@ -1,6 +1,7 @@
 import { getOsintAccessToken } from '@/osint/auth'
 import type {
   GenerateChunkEvent,
+  OhMyPptMessage,
   OhMyPptSessionDetail,
   OhMyPptSessionSummary,
   OhMyPptStyle,
@@ -16,11 +17,31 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     headers.set('Content-Type', 'application/json')
   }
   const res = await fetch(`${API_BASE}${path}`, { ...init, headers })
+  const text = await res.text()
+  const contentType = res.headers.get('content-type') || ''
+  const looksLikeHtml = text.trimStart().toLowerCase().startsWith('<!doctype') || text.trimStart().startsWith('<html')
+
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error(err.detail || err.error || res.statusText || 'Request failed')
+    if (contentType.includes('json') && !looksLikeHtml) {
+      try {
+        const err = JSON.parse(text) as { detail?: string; error?: string }
+        throw new Error(err.detail || err.error || res.statusText || 'Request failed')
+      } catch (e) {
+        if (e instanceof Error && e.message !== res.statusText) throw e
+      }
+    }
+    throw new Error(
+      looksLikeHtml
+        ? `接口 ${path} 不可用（返回了 HTML，请确认 backend 与 ohmyppt 服务已更新并重启）`
+        : text.slice(0, 200) || res.statusText || 'Request failed',
+    )
   }
-  return res.json() as Promise<T>
+
+  if (looksLikeHtml || !contentType.includes('json')) {
+    throw new Error(`接口 ${path} 返回了非 JSON 响应，请确认 backend 与 ohmyppt 服务已部署`)
+  }
+
+  return JSON.parse(text) as T
 }
 
 function parseSSEBlock(block: string): GenerateChunkEvent | null {
@@ -42,23 +63,32 @@ function parseSSEBlock(block: string): GenerateChunkEvent | null {
   return null
 }
 
-async function streamGenerateSSE(
-  sessionId: string,
-  body: Record<string, unknown>,
+async function consumeGenerateSSE(
+  url: string,
+  init: RequestInit,
   onChunk: (ev: GenerateChunkEvent) => void,
 ): Promise<void> {
   const token = getOsintAccessToken()
-  const headers = new Headers({ 'Content-Type': 'application/json', Accept: 'text/event-stream' })
+  const headers = new Headers(init.headers)
   if (token) headers.set('Authorization', `Bearer ${token}`)
+  if (!headers.has('Accept')) headers.set('Accept', 'text/event-stream')
 
-  const res = await fetch(`${API_BASE}/sessions/${sessionId}/generate`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(body),
-  })
+  const res = await fetch(url, { ...init, headers })
   if (!res.ok || !res.body) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error(err.detail || 'Generation failed')
+    const text = await res.text().catch(() => '')
+    const looksLikeHtml = text.trimStart().toLowerCase().startsWith('<!doctype')
+    throw new Error(
+      looksLikeHtml
+        ? '生成接口不可用（返回了 HTML，请确认 backend 与 ohmyppt 服务已更新）'
+        : (() => {
+            try {
+              const err = JSON.parse(text) as { detail?: string; error?: string }
+              return err.detail || err.error || 'Generation stream failed'
+            } catch {
+              return text.slice(0, 200) || 'Generation stream failed'
+            }
+          })(),
+    )
   }
 
   const reader = res.body.getReader()
@@ -98,6 +128,16 @@ export const ohmypptApi = {
 
   getSession: (id: string) => request<OhMyPptSessionDetail>(`/sessions/${id}`),
 
+  getMessages: async (sessionId: string) => {
+    try {
+      return await request<{ messages: OhMyPptMessage[] }>(`/sessions/${sessionId}/messages`).then(
+        (r) => r.messages,
+      )
+    } catch {
+      return []
+    }
+  },
+
   updateSessionTitle: (sessionId: string, title: string) =>
     request<{ ok: boolean; title: string }>(`/sessions/${sessionId}`, {
       method: 'PATCH',
@@ -111,7 +151,19 @@ export const ohmypptApi = {
     sessionId: string,
     onChunk: (ev: GenerateChunkEvent) => void,
     opts?: { user_message?: string },
-  ) => streamGenerateSSE(sessionId, opts ?? {}, onChunk),
+  ) =>
+    consumeGenerateSSE(
+      `${API_BASE}/sessions/${sessionId}/generate`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(opts ?? {}),
+      },
+      onChunk,
+    ),
+
+  streamSubscribe: (sessionId: string, onChunk: (ev: GenerateChunkEvent) => void) =>
+    consumeGenerateSSE(`${API_BASE}/sessions/${sessionId}/generate/stream`, { method: 'GET' }, onChunk),
 
   getPageHtml: async (sessionId: string, pageId: string): Promise<string> => {
     const token = getOsintAccessToken()

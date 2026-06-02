@@ -91,4 +91,27 @@ export interface OhMyPptPage {
 export interface OhMyPptSessionDetail {
   session: OhMyPptSessionSummary & Record<string, unknown>
   pages: OhMyPptPage[]
+  activeRun?: OhMyPptActiveRun | null
+  messages?: OhMyPptMessage[]
+}
+
+export interface OhMyPptActiveRun {
+  runId: string
+  status: 'running' | 'completed' | 'failed'
+  progress: number
+  totalPages: number
+  mode?: string
+  error?: string | null
+  startedAt?: number
+  updatedAt?: number
+}
+
+export interface OhMyPptMessage {
+  id?: string
+  role: 'user' | 'assistant' | 'system' | 'tool'
+  content: string
+  type?: string
+  chat_scope?: string
+  page_id?: string | null
+  created_at?: number | null
 }

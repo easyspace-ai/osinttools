@@ -10,6 +10,11 @@ import {
 } from '../ohmyppt/utils/html-pptx/index.js'
 import { extractHtmlPageToPptxSlide } from '../ohmyppt/utils/html-pptx/renderer.js'
 import type { OhMyPptRuntime } from './runtime.js'
+import {
+  buildPptxExportCacheKey,
+  getCachedPptxExport,
+  setCachedPptxExport
+} from './pptx-export-cache.js'
 
 let exportChain: Promise<unknown> = Promise.resolve()
 
@@ -65,6 +70,17 @@ async function exportSessionToPptxUnlocked(
 
   const prefix = imageOnly ? '【Image】' : '【Edit】'
   const fileName = `${sanitizeExportBaseName(`${prefix}${sessionTitle}`, sessionId)}.pptx`
+
+  const cacheKey = await buildPptxExportCacheKey(sessionId, sessionTitle, pages, options)
+  const cached = getCachedPptxExport(cacheKey)
+  if (cached) {
+    log.info('[export:pptx] cache hit', {
+      sessionId,
+      pageCount: cached.pageCount,
+      imageOnly
+    })
+    return cached
+  }
 
   const warnings: string[] = []
   const slides: HtmlToPptxSlide[] = []
@@ -171,12 +187,14 @@ async function exportSessionToPptxUnlocked(
       embeddedFontCount: embeddedFonts.length
     })
 
-    return {
+    const result: PptxExportResult = {
       buffer,
       warnings,
       pageCount: slides.length,
       fileName
     }
+    setCachedPptxExport(cacheKey, result)
+    return result
   } finally {
     await fs.unlink(tmpPath).catch(() => undefined)
   }

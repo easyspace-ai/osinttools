@@ -84,3 +84,4 @@ slideglance/test-results/
 slideglance/*.vsix
 
 hana.*
+generative-ui-demo

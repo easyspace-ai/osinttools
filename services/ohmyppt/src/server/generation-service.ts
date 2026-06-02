@@ -5,9 +5,7 @@ import {
   resolveDeckContext
 } from '../ohmyppt/ipc/generation/deck-flow.js'
 import { finalizeGenerationFailure } from '../ohmyppt/ipc/generation/finalization.js'
-import {
-  setGenerationChunkListener
-} from '../adapters/generation-chunk-bus.js'
+import { subscribeGenerationChunks } from '../adapters/generation-chunk-bus.js'
 import type { OhMyPptRuntime } from './runtime.js'
 import { upsertRequestModel } from './runtime.js'
 import type { ServiceConfig } from './config.js'
@@ -37,12 +35,17 @@ export class GenerationService {
   ): Promise<void> {
     const { ipc, agentManager } = this.runtime
 
+    const activeRun = ipc.sessionRunStates.get(sessionId)
+    if (activeRun?.status === 'running') {
+      throw new Error('该会话正在生成中，请稍后再试或在其他窗口查看进度')
+    }
+
     if (options.model) {
       await upsertRequestModel(this.runtime.db, ipc, this.cfg.defaultModel, options.model)
     }
 
-    setGenerationChunkListener((_sid, chunk) => {
-      if (_sid === sessionId) onChunk(chunk)
+    const unsubscribe = subscribeGenerationChunks(sessionId, (_sid, chunk) => {
+      onChunk(chunk)
     })
 
     const emitAssistant = createEmitAssistantMessage(this.runtime.db, ipc.emitGenerateChunk)
@@ -71,7 +74,7 @@ export class GenerationService {
       }
       throw error
     } finally {
-      setGenerationChunkListener(null)
+      unsubscribe()
       agentManager.removeSession(sessionId)
     }
   }

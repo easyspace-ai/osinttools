@@ -106,13 +106,27 @@ export default function PptxgenjsEditor({
 
   const load = useCallback(async () => {
     if (!projectId) return
-    const [proj, res] = await Promise.all([
+    const [proj, res, chat] = await Promise.all([
       pptxgenjsApi.getProject(projectId),
       pptxgenjsApi.listResources(projectId),
+      pptxgenjsApi.getChat(projectId),
     ])
     setProjectName(proj.name)
     setSchemaJson(res.find((r) => r.type === 'slide_schema')?.content || '')
+    setMessages(chat)
   }, [projectId])
+
+  const persistChat = useCallback(
+    async (next: ChatMsg[]) => {
+      if (!projectId) return
+      try {
+        await pptxgenjsApi.saveChat(projectId, next)
+      } catch {
+        /* non-blocking */
+      }
+    },
+    [projectId],
+  )
 
   const onPipelineEvent = useCallback((ev: PipelineEvent) => {
     handlePipelineEvent(ev, setStage, setStageMsg, setPartialByStage, setError)
@@ -175,7 +189,9 @@ export default function PptxgenjsEditor({
     if (!projectId || !input.trim() || sending) return
     const text = input.trim()
     setInput('')
-    setMessages((m) => [...m, { role: 'user', content: text }])
+    const withUser: ChatMsg[] = [...messages, { role: 'user', content: text }]
+    setMessages(withUser)
+    void persistChat(withUser)
     setSending(true)
     setPipelineRunning(true)
     setError('')
@@ -184,11 +200,18 @@ export default function PptxgenjsEditor({
     setStage('outline')
     try {
       await pptxgenjsApi.regenerate(projectId, text, onPipelineEvent)
-      setMessages((m) => [...m, { role: 'assistant', content: '已根据你的说明更新 Slide Schema。' }])
+      const withAssistant: ChatMsg[] = [
+        ...withUser,
+        { role: 'assistant', content: '已根据你的说明更新 Slide Schema。' },
+      ]
+      setMessages(withAssistant)
+      void persistChat(withAssistant)
       await load()
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : '更新失败'
-      setMessages((m) => [...m, { role: 'assistant', content: msg }])
+      const withError: ChatMsg[] = [...withUser, { role: 'assistant', content: msg }]
+      setMessages(withError)
+      void persistChat(withError)
       setError(msg)
     } finally {
       setSending(false)

@@ -4,7 +4,12 @@ import { ArrowLeft, Download, FileCode, Loader2, MessageSquare, Presentation, Se
 import { cn } from '@/lib/utils'
 import { studioHomePath } from '../lib/routes'
 import { ohmypptApi } from '../lib/ohmypptApi'
-import type { GenerateChunkEvent, OhMyPptPage } from '../lib/ohmypptTypes'
+import {
+  buildPptxPreviewCacheKey,
+  getCachedPptxPreview,
+  setCachedPptxPreview,
+} from '../lib/pptxPreviewCache'
+import type { GenerateChunkEvent, OhMyPptMessage, OhMyPptPage } from '../lib/ohmypptTypes'
 import { SimplifiedDeckPreview } from '@/slideglance/components/SimplifiedDeckPreview'
 import { SlideglanceErrorBoundary } from '@/slideglance/components/SlideglanceErrorBoundary'
 
@@ -30,10 +35,53 @@ function formatStageLabel(stage: string): string {
     outline: '组织大纲',
     design: '设计样式',
     generate: '生成页面',
+    rendering: '渲染页面',
+    preflight: '准备生成',
     run_completed: '完成',
     run_error: '出错',
   }
   return map[stage] || stage
+}
+
+function dbMessagesToChat(messages: OhMyPptMessage[], topic?: string): ChatMsg[] {
+  const out: ChatMsg[] = []
+  for (const m of messages) {
+    if (m.role === 'user' && m.content.trim()) {
+      out.push({ role: 'user', content: m.content })
+    } else if (m.role === 'assistant' && m.content.trim()) {
+      out.push({ role: 'assistant', content: m.content })
+    } else if (m.role === 'system' && m.type === 'stream_chunk' && m.content.trim()) {
+      out.push({
+        role: 'stage',
+        stage: `history-${m.id || out.length}`,
+        label: '生成进度',
+        content: m.content,
+        expanded: false,
+        done: true,
+      })
+    }
+  }
+  if (out.length === 0 && topic?.trim()) {
+    return [{ role: 'user', content: topic.trim() }]
+  }
+  return out
+}
+
+async function streamWithSubscribeFallback(
+  sessionId: string,
+  onChunk: (ev: GenerateChunkEvent) => void,
+  opts?: { user_message?: string },
+): Promise<void> {
+  try {
+    await ohmypptApi.streamGenerate(sessionId, onChunk, opts)
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : ''
+    if (msg.includes('正在生成中')) {
+      await ohmypptApi.streamSubscribe(sessionId, onChunk)
+      return
+    }
+    throw e
+  }
 }
 
 export default function StudioEditor() {
@@ -42,6 +90,7 @@ export default function StudioEditor() {
   const autoRunDone = useRef(false)
 
   const [title, setTitle] = useState('')
+  const [sessionUpdatedAt, setSessionUpdatedAt] = useState(0)
   const [topic, setTopic] = useState('')
   const [pages, setPages] = useState<OhMyPptPage[]>([])
   const [stage, setStage] = useState('')
@@ -56,10 +105,11 @@ export default function StudioEditor() {
   const [previewLoading, setPreviewLoading] = useState(false)
   const [messages, setMessages] = useState<ChatMsg[]>([])
   const [input, setInput] = useState('')
-  const [previewTab, setPreviewTab] = useState<'html' | 'pptx'>('html')
+  const [previewTab, setPreviewTab] = useState<'pptx'>('pptx')
   const [pptxBytes, setPptxBytes] = useState<Uint8Array | null>(null)
   const [pptxBuilding, setPptxBuilding] = useState(false)
   const stageMsgRef = useRef<ChatMsg | null>(null)
+  const subscribeStarted = useRef(false)
 
   const completedPages = useMemo(
     () => pages.filter((p) => p.status === 'completed' || p.status === 'generated').length,
@@ -67,15 +117,26 @@ export default function StudioEditor() {
   )
   const totalPages = pages.length
 
+  const pptxPreviewCacheKey = useMemo(() => {
+    if (!sessionId || pages.length === 0) return ''
+    return buildPptxPreviewCacheKey(sessionId, pages, sessionUpdatedAt, { image_only: false })
+  }, [sessionId, pages, sessionUpdatedAt])
+
   const load = useCallback(async () => {
-    if (!sessionId) return
+    if (!sessionId) return null
     const detail = await ohmypptApi.getSession(sessionId)
     const session = detail.session
     setTitle(String(session.title || sessionId))
+    setSessionUpdatedAt(Number(session.updatedAt ?? session.updated_at ?? 0))
     setPages(detail.pages || [])
-    if (session.topic && typeof session.topic === 'string') {
-      setTopic(session.topic)
+    const sessionTopic = session.topic && typeof session.topic === 'string' ? session.topic : ''
+    if (sessionTopic) setTopic(sessionTopic)
+    let storedMessages = detail.messages
+    if (!storedMessages?.length) {
+      storedMessages = await ohmypptApi.getMessages(sessionId)
     }
+    setMessages(dbMessagesToChat(storedMessages || [], sessionTopic))
+    return detail
   }, [sessionId])
 
   const appendLog = useCallback((line: string) => {
@@ -187,7 +248,7 @@ export default function StudioEditor() {
     setStage('planning')
     setStageMsg('准备生成…')
     try {
-      await ohmypptApi.streamGenerate(sessionId, onChunk)
+      await streamWithSubscribeFallback(sessionId, onChunk)
       await load()
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : '生成失败')
@@ -197,8 +258,35 @@ export default function StudioEditor() {
   }, [sessionId, generating, onChunk, load])
 
   useEffect(() => {
-    void load().catch((e) => setError(e instanceof Error ? e.message : '加载失败'))
-  }, [load])
+    subscribeStarted.current = false
+    let cancelled = false
+
+    void (async () => {
+      try {
+        const detail = await load()
+        if (cancelled || !detail?.activeRun || detail.activeRun.status !== 'running') return
+        if (subscribeStarted.current || autoRunDone.current) return
+        subscribeStarted.current = true
+        setGenerating(true)
+        setStage('planning')
+        setStageMsg('正在生成…')
+        try {
+          await ohmypptApi.streamSubscribe(sessionId!, onChunk)
+          if (!cancelled) await load()
+        } catch (e: unknown) {
+          if (!cancelled) setError(e instanceof Error ? e.message : '订阅生成进度失败')
+        } finally {
+          if (!cancelled) setGenerating(false)
+        }
+      } catch (e: unknown) {
+        if (!cancelled) setError(e instanceof Error ? e.message : '加载失败')
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [sessionId, load, onChunk])
 
   useEffect(() => {
     const autoRun = (location.state as { autoRun?: boolean } | null)?.autoRun
@@ -207,16 +295,6 @@ export default function StudioEditor() {
       void runGenerate()
     }
   }, [location.state, sessionId, runGenerate])
-
-  useEffect(() => {
-    if (topic) {
-      setMessages((prev) => {
-        const hasTopic = prev.some((m) => m.role === 'user' && m.content === topic)
-        if (hasTopic) return prev
-        return [{ role: 'user', content: topic }, ...prev]
-      })
-    }
-  }, [topic])
 
   const currentPage = pages[currentPageIdx]
   const currentPageId = currentPage ? resolvePageId(currentPage) : ''
@@ -245,12 +323,27 @@ export default function StudioEditor() {
   }, [sessionId, currentPageId])
 
   useEffect(() => {
-    if (previewTab !== 'pptx' || !sessionId || pages.length === 0) return
+    if (previewTab !== 'pptx' || !sessionId || pages.length === 0 || !pptxPreviewCacheKey) return
+
+    const cachedBlob = getCachedPptxPreview(pptxPreviewCacheKey)
+    if (cachedBlob) {
+      let cancelled = false
+      void cachedBlob.arrayBuffer().then((buf) => {
+        if (!cancelled) setPptxBytes(new Uint8Array(buf))
+      })
+      return () => {
+        cancelled = true
+      }
+    }
+
     let cancelled = false
     setPptxBuilding(true)
     ohmypptApi
       .fetchPptxBlob(sessionId, { image_only: false })
-      .then((blob) => blob.arrayBuffer())
+      .then((blob) => {
+        setCachedPptxPreview(pptxPreviewCacheKey, blob)
+        return blob.arrayBuffer()
+      })
       .then((buf) => {
         if (!cancelled) setPptxBytes(new Uint8Array(buf))
       })
@@ -263,7 +356,7 @@ export default function StudioEditor() {
     return () => {
       cancelled = true
     }
-  }, [previewTab, sessionId, pages.length])
+  }, [previewTab, sessionId, pages.length, pptxPreviewCacheKey])
 
   const handleExportZip = async () => {
     if (!sessionId) return
@@ -299,12 +392,8 @@ export default function StudioEditor() {
     setStage('planning')
     setStageMsg('根据你的说明调整中…')
     try {
-      await ohmypptApi.streamGenerate(sessionId, onChunk, { user_message: text })
+      await streamWithSubscribeFallback(sessionId, onChunk, { user_message: text })
       await load()
-      setMessages((m) => [
-        ...m,
-        { role: 'assistant', content: '已根据你的说明更新幻灯片。' },
-      ])
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : '更新失败'
       setMessages((m) => [...m, { role: 'assistant', content: msg }])
@@ -462,19 +551,7 @@ export default function StudioEditor() {
         <main className="relative flex min-w-0 flex-1 flex-col bg-gray-100">
           {/* Tab bar */}
           <div className="flex shrink-0 border-b border-gray-200 bg-white">
-            <button
-              type="button"
-              onClick={() => setPreviewTab('html')}
-              className={cn(
-                'flex items-center gap-1.5 px-4 py-2 text-xs font-medium transition',
-                previewTab === 'html'
-                  ? 'border-b-2 border-violet-500 text-violet-700'
-                  : 'text-gray-500 hover:text-gray-700',
-              )}
-            >
-              <FileCode size={14} />
-              HTML 预览
-            </button>
+           
             <button
               type="button"
               onClick={() => setPreviewTab('pptx')}

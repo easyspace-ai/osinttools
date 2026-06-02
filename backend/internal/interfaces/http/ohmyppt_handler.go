@@ -44,9 +44,11 @@ func (h *OhMyPPTHandler) RegisterRoutes(r *gin.RouterGroup) {
 	r.GET("/ohmyppt/sessions", h.listSessions)
 	r.POST("/ohmyppt/sessions", h.createSession)
 	r.GET("/ohmyppt/sessions/:id", h.getSession)
+	r.GET("/ohmyppt/sessions/:id/messages", h.getSessionMessages)
 	r.PATCH("/ohmyppt/sessions/:id", h.updateSession)
 	r.DELETE("/ohmyppt/sessions/:id", h.deleteSession)
 	r.POST("/ohmyppt/sessions/:id/generate", h.generateSession)
+	r.GET("/ohmyppt/sessions/:id/generate/stream", h.streamGenerateSession)
 	r.GET("/ohmyppt/sessions/:id/pages/:pageId", h.getPage)
 	r.POST("/ohmyppt/sessions/:id/export", h.exportSession)
 	r.POST("/ohmyppt/export/guizang-pptx", h.exportGuizangPptx)
@@ -98,6 +100,26 @@ func (h *OhMyPPTHandler) getSession(c *gin.Context) {
 	}
 	id := c.Param("id")
 	h.proxyJSON(c, http.MethodGet, h.serviceURL+"/v1/sessions/"+id, nil, 15*time.Second)
+}
+
+func (h *OhMyPPTHandler) getSessionMessages(c *gin.Context) {
+	if !h.requireService(c) {
+		return
+	}
+	id := c.Param("id")
+	url := h.serviceURL + "/v1/sessions/" + id + "/messages"
+	if q := c.Request.URL.RawQuery; q != "" {
+		url += "?" + q
+	}
+	h.proxyJSON(c, http.MethodGet, url, nil, 15*time.Second)
+}
+
+func (h *OhMyPPTHandler) streamGenerateSession(c *gin.Context) {
+	if !h.requireService(c) {
+		return
+	}
+	id := c.Param("id")
+	h.proxySSE(c, http.MethodGet, h.serviceURL+"/v1/sessions/"+id+"/generate/stream", nil)
 }
 
 func (h *OhMyPPTHandler) updateSession(c *gin.Context) {
