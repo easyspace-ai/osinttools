@@ -1,0 +1,52 @@
+{
+  "generated_at": "2026-05-31T17:09:10.287499+00:00",
+  "template": "report-massive-reports",
+  "source_md": "md/ai-relay-station-report.md",
+  "output_pptx": "data/levenppt/output/ai-relay-station-hybrid.pptx",
+  "score_report": "data/levenppt/output/hybrid/score-report.json",
+  "re_picked": [
+    {
+      "order": 3,
+      "intent": "swot",
+      "headline": "三重合规障碍",
+      "from": 14,
+      "to": 4,
+      "score": 0.712,
+      "mode": "template"
+    },
+    {
+      "order": 8,
+      "intent": "comparison",
+      "headline": "国产替代威胁",
+      "from": 22,
+      "to": 15,
+      "score": 0.695,
+      "mode": "template"
+    },
+    {
+      "order": 11,
+      "intent": "risk_list",
+      "headline": "刑民风险清单",
+      "from": 4,
+      "to": 12,
+      "score": 0.55,
+      "mode": "preset"
+    }
+  ],
+  "selected_slides": [
+    16,
+    21,
+    4,
+    13,
+    6,
+    10,
+    25,
+    15,
+    30,
+    35,
+    12,
+    27
+  ],
+  "surgery_applied": [],
+  "build_log_tail": " slide  12 shape 29: replaced paragraph (kept run 0 formatting): '完成20次用户访谈及5次跨部门需求对接，梳理有效需求32条，按业务价值分类形成需求池，输出PRD文档18份，需求交付准确率达95%' -> '违反许可制度→非法经营罪（《刑法》第225条），个人非法经营5万元即应立案。'\nOK   slide  12 shape 41: replaced paragraph (kept run 0 formatting): '技术支持' -> '个人信息'\nOK   slide  12 shape 40: replaced paragraph (kept run 0 formatting): '完成钢筋绑扎、模板支护等技术交底8次，针对梁柱节点施工优化方案2项，现场技术指导40余次，有效减少施工返工率至1.2%' -> '出售用户对话数据→侵犯公民个人信息罪（《刑法》第253条之一）。'\nOK   slide  12 shape 46: replaced paragraph (kept run 0 formatting): '严格管控' -> '数据违法'\nOK   slide  12 shape 45: replaced paragraph (kept run 0 formatting): '组织巡查25次，排查临边防护、用电等隐患18处，整改率百分百；开展班组培训3场，参训120人次，实现季度没有意外' -> '违反《网络安全法》《数据安全法》：未履行安全评估与备案义务。'\nOK   slide  27 shape 16: replaced run: '工作计划' -> '结论'\nOK   slide  27 shape 29: replaced paragraph (kept run 0 formatting): '流量提升\\u200b' -> '法律'\nOK   slide  27 shape 31: replaced paragraph (kept run 0 formatting): '活动策划\\u200b' -> '竞争'\nOK   slide  27 shape 33: replaced paragraph (kept run 0 formatting): '转化优化\\u200b' -> '模式'\nOK   slide  27 shape 35: replaced paragraph (kept run 0 formatting): '库存管理\\u200b' -> '结论'\nOK   slide  27 shape 28: replaced paragraph (kept run 0 formatting): '优化直通车、引力魔方投放，测试3个新内容渠道。周度复盘调比例，目标访客量较Q3增30%，指向流量占比65%' -> '上海首例刑拘明确灰色红线；合规因备案障碍基本不可行；国产降价与大玩家补贴持续挤压利润。'\nOK   slide  27 shape 30: replaced paragraph (kept run 0 formatting): '定 “预售 + 爆发” 方案，联动多部门分工。提前30天预热，目标活动 GMV 破 800万，增25%' -> '92+同类产品运营，SegmentFault指出竞争焦点转向稳定性与真实成本控制能力。'\nOK   slide  27 shape 32: replaced paragraph (kept run 0 formatting): '联合设计优化详情页，设分层满减；梳理服务话术，开展2场培训。目标店铺转化率升至4.2%' -> '「零成本暴富」窗口对个人和小团队已结束；有资源机构可探索出海或私有化部署。'\nOK   slide  27 shape 34: replaced paragraph (kept run 0 formatting): '依历史数据完成150款商品备货，建库存预警。联动供应链，确保补货≤3 天，缺货率≤2%' -> '2026年在中国做AI中转站卖Token，面临法律、竞争、商业模式三重挤压，已无搞头。'\nOK   slide  27 shape 36: replaced paragraph (kept run 0 formatting): '搭指标监测看板，周度分析数据。快速调整异常策略，形成《Q4 优化手册》' -> '报告完成：2026年5月29日 | 调研期：2025年5月–2026年5月'\n\nSaved data/levenppt/output/ai-relay-station-hybrid.pptx with 12 slides and 112 edits\n"
+}

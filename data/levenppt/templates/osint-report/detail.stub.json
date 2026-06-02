@@ -1,0 +1,25 @@
+{
+  "$schema": "ppt-template-detail/v1",
+  "slug": "osint-report",
+  "name": "OSINT Research Report (scaffold)",
+  "source_pptx": "template.pptx",
+  "slide_count": 0,
+  "aspect": "16:9",
+  "style": "osint-research-dense",
+  "theme_colors": ["#1E3A5F", "#C41E3A", "#F8F9FA", "#FFFFFF"],
+  "status": "awaiting_template_pptx",
+  "editing_rules": [
+    "Replace this stub after template.pptx is added.",
+    "Run Gorden compute_capacity.py to regenerate detail.json with real slide_count and text_slots.",
+    "Do not use for build_pptx until slide_count > 0 and text_slots are populated."
+  ],
+  "skip_pages": [],
+  "page_roles": {
+    "cover": [],
+    "agenda": [],
+    "content": [],
+    "section": [],
+    "closing": []
+  },
+  "slides": []
+}

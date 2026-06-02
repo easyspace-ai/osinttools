@@ -1,0 +1,885 @@
+{
+  "template_slug": "report-massive-reports",
+  "threshold": 0.6,
+  "slides": [
+    {
+      "order": 1,
+      "intent": "title",
+      "headline": "AI中转站Token调研",
+      "original_template_slide": 16,
+      "original_fit_score": 0.617,
+      "recommended_template_slide": 16,
+      "recommended_mode": "template",
+      "fit_score": 0.617,
+      "re_picked": false,
+      "effective_intents": {
+        "title": 1.8
+      },
+      "top_candidates": [
+        {
+          "template_slide": 16,
+          "layout": "工作汇报/销售渠道收入分析",
+          "fit_score": 0.617,
+          "breakdown": {
+            "semantic": 0.429,
+            "slot_fit": 1.0,
+            "capacity": 1.0,
+            "penalty": 0.112
+          }
+        },
+        {
+          "template_slide": 15,
+          "layout": "工作汇报/公司业绩增长",
+          "fit_score": 0.574,
+          "breakdown": {
+            "semantic": 0.143,
+            "slot_fit": 1.0,
+            "capacity": 1.0,
+            "penalty": 0.069
+          }
+        },
+        {
+          "template_slide": 29,
+          "layout": "工作汇报/业绩增长分析",
+          "fit_score": 0.558,
+          "breakdown": {
+            "semantic": 0.143,
+            "slot_fit": 0.9,
+            "capacity": 1.0,
+            "penalty": 0.05
+          }
+        },
+        {
+          "template_slide": 2,
+          "layout": "工作汇报/年度工作 SWOT 分析",
+          "fit_score": 0.55,
+          "breakdown": {
+            "semantic": 0.0,
+            "slot_fit": 1.0,
+            "capacity": 1.0,
+            "penalty": 0.05
+          }
+        },
+        {
+          "template_slide": 6,
+          "layout": "工作汇报/核心工作目标",
+          "fit_score": 0.55,
+          "breakdown": {
+            "semantic": 0.0,
+            "slot_fit": 1.0,
+            "capacity": 1.0,
+            "penalty": 0.05
+          }
+        }
+      ]
+    },
+    {
+      "order": 2,
+      "intent": "executive_summary",
+      "headline": "调研摘要",
+      "original_template_slide": 21,
+      "original_fit_score": 0.708,
+      "recommended_template_slide": 21,
+      "recommended_mode": "template",
+      "fit_score": 0.708,
+      "re_picked": false,
+      "effective_intents": {
+        "executive_summary": 1.0,
+        "risk_list": 0.8,
+        "conclusion": 0.8
+      },
+      "top_candidates": [
+        {
+          "template_slide": 21,
+          "layout": "工作汇报/年度工作完成情况",
+          "fit_score": 0.708,
+          "breakdown": {
+            "semantic": 0.604,
+            "slot_fit": 1.0,
+            "capacity": 1.0,
+            "penalty": 0.073
+          }
+        },
+        {
+          "template_slide": 7,
+          "layout": "工作汇报/项目完成情况",
+          "fit_score": 0.687,
+          "breakdown": {
+            "semantic": 0.476,
+            "slot_fit": 1.0,
+            "capacity": 1.0,
+            "penalty": 0.055
+          }
+        },
+        {
+          "template_slide": 4,
+          "layout": "工作汇报/存在问题与不足分析",
+          "fit_score": 0.672,
+          "breakdown": {
+            "semantic": 0.443,
+            "slot_fit": 1.0,
+            "capacity": 1.0,
+            "penalty": 0.061
+          }
+        },
+        {
+          "template_slide": 13,
+          "layout": "工作汇报/工作问题及改进方法",
+          "fit_score": 0.657,
+          "breakdown": {
+            "semantic": 0.355,
+            "slot_fit": 1.0,
+            "capacity": 1.0,
+            "penalty": 0.05
+          }
+        },
+        {
+          "template_slide": 26,
+          "layout": "工作汇报/工作总结",
+          "fit_score": 0.606,
+          "breakdown": {
+            "semantic": 0.187,
+            "slot_fit": 1.0,
+            "capacity": 1.0,
+            "penalty": 0.05
+          }
+        }
+      ]
+    },
+    {
+      "order": 3,
+      "intent": "swot",
+      "headline": "三重合规障碍",
+      "original_template_slide": 14,
+      "original_fit_score": 0.53,
+      "recommended_template_slide": 4,
+      "recommended_mode": "template",
+      "fit_score": 0.712,
+      "re_picked": true,
+      "effective_intents": {
+        "swot": 0.25,
+        "risk_list": 0.8
+      },
+      "top_candidates": [
+        {
+          "template_slide": 4,
+          "layout": "工作汇报/存在问题与不足分析",
+          "fit_score": 0.712,
+          "breakdown": {
+            "semantic": 0.577,
+            "slot_fit": 1.0,
+            "capacity": 1.0,
+            "penalty": 0.061
+          }
+        },
+        {
+          "template_slide": 13,
+          "layout": "工作汇报/工作问题及改进方法",
+          "fit_score": 0.658,
+          "breakdown": {
+            "semantic": 0.359,
+            "slot_fit": 1.0,
+            "capacity": 1.0,
+            "penalty": 0.05
+          }
+        },
+        {
+          "template_slide": 2,
+          "layout": "工作汇报/年度工作 SWOT 分析",
+          "fit_score": 0.578,
+          "breakdown": {
+            "semantic": 0.094,
+            "slot_fit": 1.0,
+            "capacity": 1.0,
+            "penalty": 0.05
+          }
+        },
+        {
+          "template_slide": 10,
+          "layout": "工作汇报/主要工作亮点",
+          "fit_score": 0.577,
+          "breakdown": {
+            "semantic": 0.109,
+            "slot_fit": 1.0,
+            "capacity": 1.0,
+            "penalty": 0.056
+          }
+        },
+        {
+          "template_slide": 33,
+          "layout": "岗位竞聘/个人竞聘优势",
+          "fit_score": 0.554,
+          "breakdown": {
+            "semantic": 0.014,
+            "slot_fit": 1.0,
+            "capacity": 1.0,
+            "penalty": 0.05
+          }
+        }
+      ]
+    },
+    {
+      "order": 4,
+      "intent": "case_study",
+      "headline": "上海首例刑拘",
+      "original_template_slide": 13,
+      "original_fit_score": 0.73,
+      "recommended_template_slide": 13,
+      "recommended_mode": "template",
+      "fit_score": 0.73,
+      "re_picked": false,
+      "effective_intents": {
+        "case_study": 1.8
+      },
+      "top_candidates": [
+        {
+          "template_slide": 13,
+          "layout": "工作汇报/工作问题及改进方法",
+          "fit_score": 0.73,
+          "breakdown": {
+            "semantic": 0.6,
+            "slot_fit": 1.0,
+            "capacity": 1.0,
+            "penalty": 0.05
+          }
+        },
+        {
+          "template_slide": 12,
+          "layout": "工作汇报/个人工作复盘",
+          "fit_score": 0.61,
+          "breakdown": {
+            "semantic": 0.2,
+            "slot_fit": 1.0,
+            "capacity": 1.0,
+            "penalty": 0.05
+          }
+        },
+        {
+          "template_slide": 23,
+          "layout": "工作汇报/工作复盘",
+          "fit_score": 0.61,
+          "breakdown": {
+            "semantic": 0.2,
+            "slot_fit": 1.0,
+            "capacity": 1.0,
+            "penalty": 0.05
+          }
+        },
+        {
+          "template_slide": 4,
+          "layout": "工作汇报/存在问题与不足分析",
+          "fit_score": 0.599,
+          "breakdown": {
+            "semantic": 0.2,
+            "slot_fit": 1.0,
+            "capacity": 1.0,
+            "penalty": 0.061
+          }
+        },
+        {
+          "template_slide": 2,
+          "layout": "工作汇报/年度工作 SWOT 分析",
+          "fit_score": 0.55,
+          "breakdown": {
+            "semantic": 0.0,
+            "slot_fit": 1.0,
+            "capacity": 1.0,
+            "penalty": 0.05
+          }
+        }
+      ]
+    },
+    {
+      "order": 5,
+      "intent": "tier_list",
+      "headline": "利润模型三档",
+      "original_template_slide": 6,
+      "original_fit_score": 0.7,
+      "recommended_template_slide": 6,
+      "recommended_mode": "template",
+      "fit_score": 0.7,
+      "re_picked": false,
+      "effective_intents": {
+        "tier_list": 1.8
+      },
+      "top_candidates": [
+        {
+          "template_slide": 6,
+          "layout": "工作汇报/核心工作目标",
+          "fit_score": 0.7,
+          "breakdown": {
+            "semantic": 0.5,
+            "slot_fit": 1.0,
+            "capacity": 1.0,
+            "penalty": 0.05
+          }
+        },
+        {
+          "template_slide": 18,
+          "layout": "工作汇报/核心目标拆解",
+          "fit_score": 0.642,
+          "breakdown": {
+            "semantic": 0.333,
+            "slot_fit": 1.0,
+            "capacity": 1.0,
+            "penalty": 0.058
+          }
+        },
+        {
+          "template_slide": 20,
+          "layout": "工作汇报/年度目标实现关键策略",
+          "fit_score": 0.6,
+          "breakdown": {
+            "semantic": 0.167,
+            "slot_fit": 1.0,
+            "capacity": 1.0,
+            "penalty": 0.05
+          }
+        },
+        {
+          "template_slide": 28,
+          "layout": "工作汇报/工作规划拆解",
+          "fit_score": 0.6,
+          "breakdown": {
+            "semantic": 0.167,
+            "slot_fit": 1.0,
+            "capacity": 1.0,
+            "penalty": 0.05
+          }
+        },
+        {
+          "template_slide": 11,
+          "layout": "工作汇报/季度目标完成情况",
+          "fit_score": 0.561,
+          "breakdown": {
+            "semantic": 0.167,
+            "slot_fit": 1.0,
+            "capacity": 1.0,
+            "penalty": 0.089
+          }
+        }
+      ]
+    },
+    {
+      "order": 6,
+      "intent": "risk_list",
+      "headline": "灰色套利手段",
+      "original_template_slide": 10,
+      "original_fit_score": 0.658,
+      "recommended_template_slide": 10,
+      "recommended_mode": "template",
+      "fit_score": 0.658,
+      "re_picked": false,
+      "effective_intents": {
+        "risk_list": 1.0,
+        "tier_list": 0.8
+      },
+      "top_candidates": [
+        {
+          "template_slide": 4,
+          "layout": "工作汇报/存在问题与不足分析",
+          "fit_score": 0.686,
+          "breakdown": {
+            "semantic": 0.488,
+            "slot_fit": 1.0,
+            "capacity": 1.0,
+            "penalty": 0.061
+          }
+        },
+        {
+          "template_slide": 10,
+          "layout": "工作汇报/主要工作亮点",
+          "fit_score": 0.658,
+          "breakdown": {
+            "semantic": 0.379,
+            "slot_fit": 1.0,
+            "capacity": 1.0,
+            "penalty": 0.056
+          }
+        },
+        {
+          "template_slide": 13,
+          "layout": "工作汇报/工作问题及改进方法",
+          "fit_score": 0.649,
+          "breakdown": {
+            "semantic": 0.329,
+            "slot_fit": 1.0,
+            "capacity": 1.0,
+            "penalty": 0.05
+          }
+        },
+        {
+          "template_slide": 6,
+          "layout": "工作汇报/核心工作目标",
+          "fit_score": 0.617,
+          "breakdown": {
+            "semantic": 0.222,
+            "slot_fit": 1.0,
+            "capacity": 1.0,
+            "penalty": 0.05
+          }
+        },
+        {
+          "template_slide": 20,
+          "layout": "工作汇报/年度目标实现关键策略",
+          "fit_score": 0.572,
+          "breakdown": {
+            "semantic": 0.074,
+            "slot_fit": 1.0,
+            "capacity": 1.0,
+            "penalty": 0.05
+          }
+        }
+      ]
+    },
+    {
+      "order": 7,
+      "intent": "comparison",
+      "headline": "大玩家2026年5月",
+      "original_template_slide": 25,
+      "original_fit_score": 0.689,
+      "recommended_template_slide": 25,
+      "recommended_mode": "template",
+      "fit_score": 0.689,
+      "re_picked": false,
+      "effective_intents": {
+        "comparison": 1.8
+      },
+      "top_candidates": [
+        {
+          "template_slide": 15,
+          "layout": "工作汇报/公司业绩增长",
+          "fit_score": 0.721,
+          "breakdown": {
+            "semantic": 0.636,
+            "slot_fit": 1.0,
+            "capacity": 1.0,
+            "penalty": 0.069
+          }
+        },
+        {
+          "template_slide": 25,
+          "layout": "工作汇报/业绩成果展示",
+          "fit_score": 0.689,
+          "breakdown": {
+            "semantic": 0.779,
+            "slot_fit": 1.0,
+            "capacity": 1.0,
+            "penalty": 0.145
+          }
+        },
+        {
+          "template_slide": 3,
+          "layout": "核心能力与成果",
+          "fit_score": 0.675,
+          "breakdown": {
+            "semantic": 0.493,
+            "slot_fit": 1.0,
+            "capacity": 1.0,
+            "penalty": 0.073
+          }
+        },
+        {
+          "template_slide": 29,
+          "layout": "工作汇报/业绩增长分析",
+          "fit_score": 0.618,
+          "breakdown": {
+            "semantic": 0.636,
+            "slot_fit": 0.65,
+            "capacity": 1.0,
+            "penalty": 0.05
+          }
+        },
+        {
+          "template_slide": 2,
+          "layout": "工作汇报/年度工作 SWOT 分析",
+          "fit_score": 0.55,
+          "breakdown": {
+            "semantic": 0.0,
+            "slot_fit": 1.0,
+            "capacity": 1.0,
+            "penalty": 0.05
+          }
+        }
+      ]
+    },
+    {
+      "order": 8,
+      "intent": "comparison",
+      "headline": "国产替代威胁",
+      "original_template_slide": 22,
+      "original_fit_score": 0.498,
+      "recommended_template_slide": 15,
+      "recommended_mode": "template",
+      "fit_score": 0.695,
+      "re_picked": true,
+      "effective_intents": {
+        "comparison": 1.8,
+        "swot": 0.8
+      },
+      "top_candidates": [
+        {
+          "template_slide": 15,
+          "layout": "工作汇报/公司业绩增长",
+          "fit_score": 0.695,
+          "breakdown": {
+            "semantic": 0.548,
+            "slot_fit": 1.0,
+            "capacity": 1.0,
+            "penalty": 0.069
+          }
+        },
+        {
+          "template_slide": 3,
+          "layout": "核心能力与成果",
+          "fit_score": 0.662,
+          "breakdown": {
+            "semantic": 0.449,
+            "slot_fit": 1.0,
+            "capacity": 1.0,
+            "penalty": 0.073
+          }
+        },
+        {
+          "template_slide": 25,
+          "layout": "工作汇报/业绩成果展示",
+          "fit_score": 0.649,
+          "breakdown": {
+            "semantic": 0.647,
+            "slot_fit": 1.0,
+            "capacity": 1.0,
+            "penalty": 0.145
+          }
+        },
+        {
+          "template_slide": 29,
+          "layout": "工作汇报/业绩增长分析",
+          "fit_score": 0.592,
+          "breakdown": {
+            "semantic": 0.548,
+            "slot_fit": 0.65,
+            "capacity": 1.0,
+            "penalty": 0.05
+          }
+        },
+        {
+          "template_slide": 2,
+          "layout": "工作汇报/年度工作 SWOT 分析",
+          "fit_score": 0.587,
+          "breakdown": {
+            "semantic": 0.123,
+            "slot_fit": 1.0,
+            "capacity": 1.0,
+            "penalty": 0.05
+          }
+        }
+      ]
+    },
+    {
+      "order": 9,
+      "intent": "pyramid",
+      "headline": "三条路径评估",
+      "original_template_slide": 30,
+      "original_fit_score": 0.688,
+      "recommended_template_slide": 30,
+      "recommended_mode": "template",
+      "fit_score": 0.688,
+      "re_picked": false,
+      "effective_intents": {
+        "pyramid": 1.8,
+        "risk_list": 0.8
+      },
+      "top_candidates": [
+        {
+          "template_slide": 30,
+          "layout": "工作汇报/金字塔逻辑图",
+          "fit_score": 0.688,
+          "breakdown": {
+            "semantic": 0.462,
+            "slot_fit": 1.0,
+            "capacity": 1.0,
+            "penalty": 0.05
+          }
+        },
+        {
+          "template_slide": 4,
+          "layout": "工作汇报/存在问题与不足分析",
+          "fit_score": 0.654,
+          "breakdown": {
+            "semantic": 0.382,
+            "slot_fit": 1.0,
+            "capacity": 1.0,
+            "penalty": 0.061
+          }
+        },
+        {
+          "template_slide": 13,
+          "layout": "工作汇报/工作问题及改进方法",
+          "fit_score": 0.638,
+          "breakdown": {
+            "semantic": 0.294,
+            "slot_fit": 1.0,
+            "capacity": 1.0,
+            "penalty": 0.05
+          }
+        },
+        {
+          "template_slide": 31,
+          "layout": "工作汇报/漏斗逻辑图",
+          "fit_score": 0.619,
+          "breakdown": {
+            "semantic": 0.231,
+            "slot_fit": 1.0,
+            "capacity": 1.0,
+            "penalty": 0.05
+          }
+        },
+        {
+          "template_slide": 10,
+          "layout": "工作汇报/主要工作亮点",
+          "fit_score": 0.558,
+          "breakdown": {
+            "semantic": 0.044,
+            "slot_fit": 1.0,
+            "capacity": 1.0,
+            "penalty": 0.056
+          }
+        }
+      ]
+    },
+    {
+      "order": 10,
+      "intent": "quote",
+      "headline": "律师观点",
+      "original_template_slide": 35,
+      "original_fit_score": 0.74,
+      "recommended_template_slide": 35,
+      "recommended_mode": "template",
+      "fit_score": 0.74,
+      "re_picked": false,
+      "effective_intents": {
+        "quote": 1.8,
+        "risk_list": 0.8
+      },
+      "top_candidates": [
+        {
+          "template_slide": 35,
+          "layout": "树状图页/工作回顾与要点",
+          "fit_score": 0.74,
+          "breakdown": {
+            "semantic": 0.765,
+            "slot_fit": 1.0,
+            "capacity": 1.0,
+            "penalty": 0.09
+          }
+        },
+        {
+          "template_slide": 4,
+          "layout": "工作汇报/存在问题与不足分析",
+          "fit_score": 0.654,
+          "breakdown": {
+            "semantic": 0.382,
+            "slot_fit": 1.0,
+            "capacity": 1.0,
+            "penalty": 0.061
+          }
+        },
+        {
+          "template_slide": 13,
+          "layout": "工作汇报/工作问题及改进方法",
+          "fit_score": 0.638,
+          "breakdown": {
+            "semantic": 0.294,
+            "slot_fit": 1.0,
+            "capacity": 1.0,
+            "penalty": 0.05
+          }
+        },
+        {
+          "template_slide": 17,
+          "layout": "工作汇报/工作回顾及计划",
+          "fit_score": 0.592,
+          "breakdown": {
+            "semantic": 0.138,
+            "slot_fit": 1.0,
+            "capacity": 1.0,
+            "penalty": 0.05
+          }
+        },
+        {
+          "template_slide": 10,
+          "layout": "工作汇报/主要工作亮点",
+          "fit_score": 0.558,
+          "breakdown": {
+            "semantic": 0.044,
+            "slot_fit": 1.0,
+            "capacity": 1.0,
+            "penalty": 0.056
+          }
+        }
+      ]
+    },
+    {
+      "order": 11,
+      "intent": "risk_list",
+      "headline": "刑民风险清单",
+      "original_template_slide": 4,
+      "original_fit_score": 0.743,
+      "recommended_template_slide": 12,
+      "recommended_mode": "preset",
+      "fit_score": 0.55,
+      "re_picked": true,
+      "effective_intents": {
+        "risk_list": 1.8
+      },
+      "top_candidates": [
+        {
+          "template_slide": 12,
+          "layout": "工作汇报/个人工作复盘",
+          "fit_score": 0.55,
+          "breakdown": {
+            "semantic": 0.0,
+            "slot_fit": 1.0,
+            "capacity": 1.0,
+            "penalty": 0.05
+          }
+        },
+        {
+          "template_slide": 9,
+          "layout": "工作汇报/私域运营策略",
+          "fit_score": 0.55,
+          "breakdown": {
+            "semantic": 0.0,
+            "slot_fit": 1.0,
+            "capacity": 1.0,
+            "penalty": 0.05
+          }
+        },
+        {
+          "template_slide": 17,
+          "layout": "工作汇报/工作回顾及计划",
+          "fit_score": 0.55,
+          "breakdown": {
+            "semantic": 0.0,
+            "slot_fit": 1.0,
+            "capacity": 1.0,
+            "penalty": 0.05
+          }
+        },
+        {
+          "template_slide": 19,
+          "layout": "工作汇报/下阶段工作计划",
+          "fit_score": 0.55,
+          "breakdown": {
+            "semantic": 0.0,
+            "slot_fit": 1.0,
+            "capacity": 1.0,
+            "penalty": 0.05
+          }
+        },
+        {
+          "template_slide": 20,
+          "layout": "工作汇报/年度目标实现关键策略",
+          "fit_score": 0.55,
+          "breakdown": {
+            "semantic": 0.0,
+            "slot_fit": 1.0,
+            "capacity": 1.0,
+            "penalty": 0.05
+          }
+        }
+      ],
+      "notes": "unique pick: slide 4 already used"
+    },
+    {
+      "order": 12,
+      "intent": "conclusion",
+      "headline": "结论",
+      "original_template_slide": 27,
+      "original_fit_score": 0.67,
+      "recommended_template_slide": 27,
+      "recommended_mode": "template",
+      "fit_score": 0.67,
+      "re_picked": false,
+      "effective_intents": {
+        "conclusion": 1.8
+      },
+      "top_candidates": [
+        {
+          "template_slide": 17,
+          "layout": "工作汇报/工作回顾及计划",
+          "fit_score": 0.67,
+          "breakdown": {
+            "semantic": 0.4,
+            "slot_fit": 1.0,
+            "capacity": 1.0,
+            "penalty": 0.05
+          }
+        },
+        {
+          "template_slide": 19,
+          "layout": "工作汇报/下阶段工作计划",
+          "fit_score": 0.67,
+          "breakdown": {
+            "semantic": 0.4,
+            "slot_fit": 1.0,
+            "capacity": 1.0,
+            "penalty": 0.05
+          }
+        },
+        {
+          "template_slide": 26,
+          "layout": "工作汇报/工作总结",
+          "fit_score": 0.67,
+          "breakdown": {
+            "semantic": 0.4,
+            "slot_fit": 1.0,
+            "capacity": 1.0,
+            "penalty": 0.05
+          }
+        },
+        {
+          "template_slide": 27,
+          "layout": "工作汇报/工作计划",
+          "fit_score": 0.67,
+          "breakdown": {
+            "semantic": 0.4,
+            "slot_fit": 1.0,
+            "capacity": 1.0,
+            "penalty": 0.05
+          }
+        },
+        {
+          "template_slide": 2,
+          "layout": "工作汇报/年度工作 SWOT 分析",
+          "fit_score": 0.61,
+          "breakdown": {
+            "semantic": 0.2,
+            "slot_fit": 1.0,
+            "capacity": 1.0,
+            "penalty": 0.05
+          }
+        }
+      ]
+    }
+  ],
+  "selected_slides": [
+    16,
+    21,
+    4,
+    13,
+    6,
+    10,
+    25,
+    15,
+    30,
+    35,
+    12,
+    27
+  ],
+  "re_picked_orders": [
+    3,
+    8,
+    11
+  ]
+}

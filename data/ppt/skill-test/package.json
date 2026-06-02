@@ -1,0 +1,19 @@
+{
+  "name": "ppt-skill-test",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "build:guizang": "node build-guizang.mjs",
+    "build:pptx": "node build-pptx.cjs",
+    "build:pptx:guizang": "node guizang-to-pptx.cjs guizang/index.html output/ai-relay-station-guizang.pptx",
+    "build:pptx:editable": "node guizang-to-editable-pptx.cjs guizang/index.html output/ai-relay-station-editable.pptx",
+    "build": "npm run build:guizang && npm run build:pptx:guizang && npm run build:pptx:editable",
+    "validate:swiss": "node ../guizang-ppt-skill/scripts/validate-swiss-deck.mjs guizang/index.html"
+  },
+  "dependencies": {
+    "node-html-parser": "^6.1.13",
+    "playwright": "^1.48.0",
+    "pptxgenjs": "^3.12.0",
+    "sharp": "^0.33.5"
+  }
+}

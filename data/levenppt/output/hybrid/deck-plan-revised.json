@@ -1,0 +1,172 @@
+{
+  "$schema": "deck-plan/v1",
+  "template_slug": "report-massive-reports",
+  "source_material": "md/ai-relay-station-report.md",
+  "meta": {
+    "title": "2026年中国AI中转站Token业务可行性调研",
+    "language": "zh",
+    "target_slides": 12,
+    "audience": "商业/投资"
+  },
+  "slides": [
+    {
+      "order": 1,
+      "template_slide": 16,
+      "intent": "title",
+      "headline": "AI中转站Token调研",
+      "bullets": [
+        "2026年5月",
+        "头部月流水约500万"
+      ],
+      "fit_score": 0.617,
+      "fallback_mode": "template"
+    },
+    {
+      "order": 2,
+      "template_slide": 21,
+      "intent": "executive_summary",
+      "headline": "调研摘要",
+      "bullets": [
+        "法律三重障碍",
+        "灰色暴利难持续",
+        "国产降价挤压",
+        "窗口基本关闭"
+      ],
+      "fit_score": 0.708,
+      "fallback_mode": "template"
+    },
+    {
+      "order": 3,
+      "template_slide": 4,
+      "intent": "swot",
+      "headline": "三重合规障碍",
+      "bullets": [
+        "电信许可",
+        "AI备案",
+        "数据出境",
+        "刑事风险"
+      ],
+      "fit_score": 0.712,
+      "fallback_mode": "template",
+      "notes": "hybrid re-pick: 14→4 (score 0.71)"
+    },
+    {
+      "order": 4,
+      "template_slide": 13,
+      "intent": "case_study",
+      "headline": "上海首例刑拘",
+      "bullets": [
+        "2026年5月",
+        "刑拘37天",
+        "反向代理+账号池"
+      ],
+      "fit_score": 0.73,
+      "fallback_mode": "template"
+    },
+    {
+      "order": 5,
+      "template_slide": 6,
+      "intent": "tier_list",
+      "headline": "利润模型三档",
+      "bullets": [
+        "正规<20%",
+        "灰色50%+",
+        "欺诈无底线"
+      ],
+      "fit_score": 0.7,
+      "fallback_mode": "template"
+    },
+    {
+      "order": 6,
+      "template_slide": 10,
+      "intent": "risk_list",
+      "headline": "灰色套利手段",
+      "bullets": [
+        "模型替换",
+        "Token虚报",
+        "数据倒卖",
+        "缓存截留"
+      ],
+      "fit_score": 0.658,
+      "fallback_mode": "template"
+    },
+    {
+      "order": 7,
+      "template_slide": 25,
+      "intent": "comparison",
+      "headline": "大玩家2026年5月",
+      "bullets": [
+        "孙宇晨B.AI",
+        "傅盛EasyRouter",
+        "特朗普WLFI"
+      ],
+      "fit_score": 0.689,
+      "fallback_mode": "template"
+    },
+    {
+      "order": 8,
+      "template_slide": 15,
+      "intent": "comparison",
+      "headline": "国产替代威胁",
+      "bullets": [
+        "DeepSeek低价",
+        "开源One API",
+        "技术壁垒消失"
+      ],
+      "fit_score": 0.695,
+      "fallback_mode": "template",
+      "notes": "hybrid re-pick: 22→15 (score 0.69)"
+    },
+    {
+      "order": 9,
+      "template_slide": 30,
+      "intent": "pyramid",
+      "headline": "三条路径评估",
+      "bullets": [
+        "纯灰色",
+        "合规化",
+        "转型出海"
+      ],
+      "fit_score": 0.688,
+      "fallback_mode": "template"
+    },
+    {
+      "order": 10,
+      "template_slide": 35,
+      "intent": "quote",
+      "headline": "律师观点",
+      "bullets": [
+        "麻策：无法取得完整合规身份"
+      ],
+      "fit_score": 0.74,
+      "fallback_mode": "template"
+    },
+    {
+      "order": 11,
+      "template_slide": 12,
+      "intent": "risk_list",
+      "headline": "刑民风险清单",
+      "bullets": [
+        "非法经营",
+        "个人信息",
+        "数据违法"
+      ],
+      "fit_score": 0.55,
+      "fallback_mode": "preset",
+      "notes": "hybrid re-pick: 4→12 (score 0.55)"
+    },
+    {
+      "order": 12,
+      "template_slide": 27,
+      "intent": "conclusion",
+      "headline": "结论",
+      "bullets": [
+        "三重挤压",
+        "个人无搞头",
+        "机构需转型"
+      ],
+      "fit_score": 0.67,
+      "fallback_mode": "template"
+    }
+  ]
+}

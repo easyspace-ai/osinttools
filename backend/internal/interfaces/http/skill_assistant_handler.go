@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/easyspace-ai/ylmnote/internal/config"
 	"github.com/easyspace-ai/ylmnote/internal/infrastructure/deepseek"
@@ -19,9 +20,10 @@ type SkillAssistantHandler struct {
 func NewSkillAssistantHandler(cfg *config.Config) *SkillAssistantHandler {
 	return &SkillAssistantHandler{
 		client: deepseek.NewClient(deepseek.Config{
-			APIKey:  cfg.DeepSeek.APIKey,
-			BaseURL: cfg.DeepSeek.BaseURL,
-			Model:   cfg.DeepSeek.Model,
+			APIKey:       cfg.DeepSeek.APIKey,
+			BaseURL:      cfg.DeepSeek.BaseURL,
+			Model:        cfg.DeepSeek.Model,
+			SkillTimeout: time.Duration(cfg.DeepSeek.TimeoutSec) * time.Second,
 		}),
 	}
 }

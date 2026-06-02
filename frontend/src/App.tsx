@@ -21,6 +21,10 @@ import { KunpengScanner } from "./components/picker/pages/KunpengScanner/Kunpeng
 import { PolymarketRouteLayout } from "./features/polymarket/PolymarketRouteLayout";
 import { XStreamRouteLayout } from "./features/polymarket/XStreamRouteLayout";
 import { DashboardRouteLayout } from "./features/dashboard/DashboardRouteLayout";
+import { StudioRouteShell } from "./features/studio/StudioRouteShell";
+import { PpthtmlRouteShell } from "./features/ppthtml/PpthtmlRouteShell";
+import { PptxgenjsRouteShell } from "./features/pptxgenjs/PptxgenjsRouteShell";
+import { SlideglanceRouteShell } from "./features/slideglance/SlideglanceRouteShell";
 import { OsintSessionRouteShell } from "./features/osint/OsintSessionRouteShell";
 import { useAuth } from "./contexts/AuthContext";
 import { fetchAuthConfig } from "./lib/authApi";
@@ -190,6 +194,10 @@ function AppShell() {
                     }
                   />
                   <Route path="/ai-session/*" element={<OsintSessionRouteShell />} />
+                  <Route path="/ppt/*" element={<StudioRouteShell />} />
+                  <Route path="/ppthtml/*" element={<PpthtmlRouteShell />} />
+                  <Route path="/pptxgenjs/*" element={<PptxgenjsRouteShell />} />
+                  <Route path="/slideglance/*" element={<SlideglanceRouteShell />} />
                   <Route path="/picker" element={<PickerRouteLayout />}>
                     <Route index element={<Navigate to="eod" replace />} />
                     <Route path="eod" element={<EndOfDayPicker />} />

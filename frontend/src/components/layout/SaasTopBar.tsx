@@ -36,6 +36,7 @@ const BREADCRUMB_LABELS: Record<string, string> = {
   momentum: "动量扫描",
   kunpeng: "鲲鹏策略",
   "ai-session": "AI 会话",
+  ppt: "PPT Studio",
 };
 
 // Workspace Switcher - COMPACT
@@ -161,6 +162,13 @@ export function SaasTopBar({ onMenuClick }: { onMenuClick?: () => void }) {
     location.pathname === "/daily-selection" || location.pathname === "/expert-analysis";
   const intelWorkbenchNoRight =
     location.pathname === "/ai-session" || location.pathname.startsWith("/ai-session/");
+  const pptWorkbenchNoRight =
+    location.pathname === "/ppt" ||
+    location.pathname.startsWith("/ppt/") ||
+    location.pathname === "/ppthtml" ||
+    location.pathname.startsWith("/ppthtml/") ||
+    location.pathname === "/pptxgenjs" ||
+    location.pathname.startsWith("/pptxgenjs/");
   /** 全局隐藏搜索、帮助、通知、设置；用户菜单始终保留 */
   const hideTopBarUtilities = true;
 
@@ -248,7 +256,7 @@ export function SaasTopBar({ onMenuClick }: { onMenuClick?: () => void }) {
           ) : null}
 
           {/* 右侧边栏控制按钮（市场页无右栏，不展示） */}
-          {!(marketWorkbenchNoRight || dailyWorkbenchNoRight || intelWorkbenchNoRight) ? (
+          {!(marketWorkbenchNoRight || dailyWorkbenchNoRight || intelWorkbenchNoRight || pptWorkbenchNoRight) ? (
             <Button variant="ghost" size="icon" className="w-7 h-7 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200" onClick={toggleRight}>
               <PanelRight size={15} />
             </Button>

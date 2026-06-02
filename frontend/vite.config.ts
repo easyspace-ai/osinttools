@@ -2,6 +2,8 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 import { defineConfig, loadEnv } from 'vite';
+import wasm from 'vite-plugin-wasm';
+import topLevelAwait from 'vite-plugin-top-level-await';
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
@@ -10,9 +12,21 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: path.resolve(__dirname, '../bin/static'),
       emptyOutDir: true,
+      rollupOptions: {
+        input: {
+          main: path.resolve(__dirname, 'index.html'),
+        },
+      },
     },
    
-    plugins: [react(), tailwindcss()],
+    plugins: [react(), tailwindcss(), wasm(), topLevelAwait()],
+    worker: {
+      format: 'es',
+      plugins: () => [wasm(), topLevelAwait()],
+    },
+    optimizeDeps: {
+      exclude: ['@slideglance/core', '@slideglance/viewer'],
+    },
     define: {
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
       'import.meta.env.VITE_OSINT_HTTP_PREFIX': JSON.stringify(
@@ -38,6 +52,11 @@ export default defineConfig(({ mode }) => {
         /** 须与 backend/.env 的 PORT 一致；Go 默认见 cmd/server main.go（未设 PORT 时为 8787） */
         '/api/markets': {
           target: 'http://127.0.0.1:7100',
+          changeOrigin: true,
+        },
+        /** Guizang HTML → image PPTX export (frontend/server/ppthtml-export) */
+        '/api/ppthtml/export': {
+          target: env.VITE_PPTHTML_EXPORT_PROXY_TARGET?.trim() || 'http://127.0.0.1:6125',
           changeOrigin: true,
         },
         '/api': {

@@ -58,12 +58,21 @@ type Config struct {
 
 	// DeepSeek 技能编写助手（OpenAI 兼容 /v1/chat/completions）
 	DeepSeek DeepSeekConfig
+
+	// OhMyPPTServiceURL headless oh-my-ppt Node 服务地址（如 http://127.0.0.1:6130）
+	OhMyPPTServiceURL string
 }
 
 type DeepSeekConfig struct {
 	APIKey  string
 	BaseURL string
 	Model   string
+	// TimeoutSec 技能编写助手等非流式调用 HTTP 超时（秒），默认 120。
+	TimeoutSec int
+	// PipelineStageTimeoutSec Studio 流水线单阶段 LLM 超时（秒），默认 300。
+	PipelineStageTimeoutSec int
+	// PipelineTotalTimeoutSec Studio 流水线整次 run/regenerate SSE 超时（秒），默认 900。
+	PipelineTotalTimeoutSec int
 }
 
 type AISDKConfig struct {
@@ -82,6 +91,15 @@ type AISDKConfig struct {
 	LegacyMode    bool
 	// Debug 为 true 时打印 SDK / 上游 HTTP 详细日志（环境变量 AI_SDK_DEBUG=true）
 	Debug bool
+}
+
+// MonorepoRoot returns repository root from cwd, or empty if unknown.
+func MonorepoRoot() string {
+	wd, err := os.Getwd()
+	if err != nil {
+		return ""
+	}
+	return monorepoRoot(wd)
 }
 
 // monorepoRoot 从 start 目录向上查找含有 backend/go.mod 的目录（即仓库根）。
@@ -175,10 +193,14 @@ func Load() *Config {
 		SkillsDefaultsDir:          ResolveSkillsDefaultsDir(getEnv("SKILLS_DEFAULTS_DIR")),
 		SkillsCustomDir:            ResolveSkillsCustomDir(getEnv("SKILLS_CUSTOM_DIR")),
 		DeepSeek: DeepSeekConfig{
-			APIKey:  getEnv("DEEPSEEK_API_KEY"),
-			BaseURL: firstNonEmpty(getEnv("DEEPSEEK_BASE_URL"), "https://api.deepseek.com"),
-			Model:   firstNonEmpty(getEnv("DEEPSEEK_MODEL"), "deepseek-chat"),
+			APIKey:                  getEnv("DEEPSEEK_API_KEY"),
+			BaseURL:                 firstNonEmpty(getEnv("DEEPSEEK_BASE_URL"), "https://api.deepseek.com"),
+			Model:                   firstNonEmpty(getEnv("DEEPSEEK_MODEL"), "deepseek-chat"),
+			TimeoutSec:              getEnvIntDefault("DEEPSEEK_TIMEOUT_SEC", 120),
+			PipelineStageTimeoutSec: getEnvIntDefault("DEEPSEEK_PIPELINE_STAGE_TIMEOUT_SEC", 300),
+			PipelineTotalTimeoutSec: getEnvIntDefault("DEEPSEEK_PIPELINE_TOTAL_TIMEOUT_SEC", 900),
 		},
+		OhMyPPTServiceURL: strings.TrimSpace(getEnv("OHMYPPT_SERVICE_URL")),
 	}
 	if cfg.DatabaseURL == "" {
 		log.Fatal("DATABASE_URL is required (set in .env)")

@@ -108,9 +108,7 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({ content }: { co
             return (
               <div className="my-4 overflow-x-auto rounded-lg border border-gray-200 shadow-sm">
                 <table {...props} className="w-full text-sm text-left">
-                  <thead className="bg-gray-50 border-b border-gray-200">
-                    {children}
-                  </thead>
+                  {children}
                 </table>
               </div>
             )

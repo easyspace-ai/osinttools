@@ -15,6 +15,7 @@ import {
   clearPreviewLoadFailure,
   invalidateCachedPreviewAndLoadFromServer,
 } from '@/osint/lib/chatPreviewCache'
+import { exportMarkdownAsPdf, exportMarkdownAsWord } from '@/osint/lib/exportMarkdown'
 function useDragging() {
   const [isDragging, setIsDragging] = useState(false)
   const [offset, setOffset] = useState({ x: 0, y: 0 })
@@ -194,6 +195,7 @@ export default function ArtifactPreviewPanel({
   const [markdownContent, setMarkdownContent] = useState('')
   const [markdownLoading, setMarkdownLoading] = useState(false)
   const [markdownError, setMarkdownError] = useState<string | null>(null)
+  const [exportBusy, setExportBusy] = useState<'word' | 'pdf' | null>(null)
 
   /** 使用 blob: + 内置 PDF 查看器，避免 pdf.js worker 跨域 / Range 导致解析失败 */
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null)
@@ -501,6 +503,46 @@ export default function ArtifactPreviewPanel({
     addToast('success', '下载已开始')
   }, [downloadUrl, addToast, isLocalPreview, viewingResource.localFile, viewingResource.name, localBlobUrl])
 
+  const canExportMarkdown =
+    fileType.type === 'markdown' &&
+    !markdownLoading &&
+    !markdownError &&
+    Boolean(markdownContent.trim())
+
+  const handleExportWord = useCallback(async () => {
+    const content = markdownContent.trim()
+    if (!content) {
+      addToast('error', '暂无内容可导出')
+      return
+    }
+    setExportBusy('word')
+    try {
+      await exportMarkdownAsWord(content, viewingResource.name)
+      addToast('success', 'Word 导出已开始')
+    } catch (err: unknown) {
+      addToast('error', err instanceof Error ? err.message : 'Word 导出失败')
+    } finally {
+      setExportBusy(null)
+    }
+  }, [markdownContent, viewingResource.name, addToast])
+
+  const handleExportPdf = useCallback(async () => {
+    const content = markdownContent.trim()
+    if (!content) {
+      addToast('error', '暂无内容可导出')
+      return
+    }
+    setExportBusy('pdf')
+    try {
+      await exportMarkdownAsPdf(content, viewingResource.name)
+      addToast('success', 'PDF 导出已开始')
+    } catch (err: unknown) {
+      addToast('error', err instanceof Error ? err.message : 'PDF 导出失败')
+    } finally {
+      setExportBusy(null)
+    }
+  }, [markdownContent, viewingResource.name, addToast])
+
   useEffect(() => {
     if (fileType.type !== 'pdf' || isLocalPreview) {
       revokePdfObjectUrl()
@@ -769,7 +811,7 @@ export default function ArtifactPreviewPanel({
         return (
           <iframe
             title={viewingResource.name}
-            className="w-full min-h-0 flex-1 border-0 bg-white"
+            className="w-full h-full min-h-0 border-0 bg-white"
             src={previewUrl}
             sandbox="allow-scripts allow-same-origin allow-popups"
           />
@@ -1023,7 +1065,7 @@ export default function ArtifactPreviewPanel({
           <iframe
             title={viewingResource.name}
             src={pdfBlobUrl}
-            className="w-full min-h-0 flex-1 border-0 bg-gray-100"
+            className="w-full h-full min-h-0 border-0 bg-gray-100"
           />
         )
 
@@ -1136,6 +1178,26 @@ const showNewTabButton = fileType.type === 'html'
               >
                 新标签预览
               </button>
+            )}
+            {canExportMarkdown && (
+              <>
+                <button
+                  onClick={handleExportWord}
+                  disabled={exportBusy !== null}
+                  className="text-xs px-2 py-1 rounded-md border border-gray-200 text-gray-600 hover:text-gray-800 hover:border-gray-300 disabled:cursor-not-allowed disabled:opacity-50"
+                  title="导出 Word"
+                >
+                  {exportBusy === 'word' ? '导出中…' : '导出 Word'}
+                </button>
+                <button
+                  onClick={handleExportPdf}
+                  disabled={exportBusy !== null}
+                  className="text-xs px-2 py-1 rounded-md border border-gray-200 text-gray-600 hover:text-gray-800 hover:border-gray-300 disabled:cursor-not-allowed disabled:opacity-50"
+                  title="导出 PDF"
+                >
+                  {exportBusy === 'pdf' ? '导出中…' : '导出 PDF'}
+                </button>
+              </>
             )}
             <button
               onClick={handleDownload}

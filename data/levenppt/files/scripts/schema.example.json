@@ -1,0 +1,58 @@
+{
+  "meta": {
+    "title": "AI 产品路演",
+    "author": "Demo",
+    "language": "zh",
+    "layout": "LAYOUT_16x9",
+    "theme": {
+      "preset": "tech-dark",
+      "primary": "0D1117",
+      "secondary": "58A6FF",
+      "accent": "3FB950",
+      "bg_dark": "0D1117",
+      "bg_light": "F6F8FA",
+      "text_dark": "24292F",
+      "text_light": "FFFFFF",
+      "font_heading": "Microsoft YaHei",
+      "font_body": "Microsoft YaHei"
+    }
+  },
+  "slides": [
+    {
+      "type": "title",
+      "bg_color": "0D1117",
+      "elements": [
+        { "kind": "text", "text": "AI 产品路演", "x": 0.8, "y": 2.0, "w": 8.4, "h": 1.2, "fontSize": 44, "bold": true, "color": "FFFFFF", "align": "center" },
+        { "kind": "text", "text": "从想法到规模化", "x": 0.8, "y": 3.2, "w": 8.4, "h": 0.6, "fontSize": 20, "color": "58A6FF", "align": "center" }
+      ]
+    },
+    {
+      "type": "agenda",
+      "bg_color": "F6F8FA",
+      "elements": [
+        { "kind": "text", "text": "议程", "x": 0.4, "y": 0.2, "w": 9.2, "h": 0.7, "fontSize": 28, "bold": true, "color": "0D1117" },
+        { "kind": "bullets", "items": ["市场机会", "产品方案", "商业模式", "路线图"], "x": 0.6, "y": 1.2, "w": 5.5, "h": 3.8, "fontSize": 20, "color": "24292F" }
+      ]
+    },
+    {
+      "layout_preset": "three_col_cards",
+      "bg_color": "F6F8FA",
+      "slots": {
+        "title": "三大优势",
+        "cards": [
+          { "title": "性能", "body": "毫秒级响应，弹性扩容。" },
+          { "title": "安全", "body": "端对端加密，合规审计。" },
+          { "title": "生态", "body": "开放 API，插件市场。" }
+        ]
+      }
+    },
+    {
+      "type": "closing",
+      "bg_color": "0D1117",
+      "elements": [
+        { "kind": "text", "text": "谢谢", "x": 0.8, "y": 2.2, "w": 8.4, "h": 1.0, "fontSize": 40, "bold": true, "color": "FFFFFF", "align": "center" },
+        { "kind": "text", "text": "Q & A", "x": 0.8, "y": 3.5, "w": 8.4, "h": 0.5, "fontSize": 16, "color": "58A6FF", "align": "center" }
+      ]
+    }
+  ]
+}

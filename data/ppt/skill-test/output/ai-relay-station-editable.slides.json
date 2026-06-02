@@ -1,0 +1,226 @@
+{
+  "version": 1,
+  "title": "2026 中国 AI 中转站 Token 业务调研",
+  "theme": "swiss-ikb",
+  "colors": {
+    "paper": "FAFAF8",
+    "ink": "0A0A0A",
+    "accent": "002FA7",
+    "grey1": "F0F0EE",
+    "grey2": "D4D4D2",
+    "grey3": "737373"
+  },
+  "slides": [
+    {
+      "id": "s01",
+      "layout": "S01",
+      "kicker": "FEASIBILITY · TOKEN RESALE",
+      "footer": "IKB · 26.05.31 · 01 / 10",
+      "title": "2026 中国 AI 中转站 Token 业务 深度调研",
+      "subtitle": "从野蛮生长到合规洗牌——法律、商业与竞争的三重挤压。"
+    },
+    {
+      "id": "s02",
+      "layout": "S09",
+      "kicker": "核心结论",
+      "footer": "02 / 10",
+      "title": "灰色入局风险极高，合规窗口已基本关闭",
+      "body": "头部月流水可达 500 万、毛利率 50% 的表象，建立在模型替换、Token 虚报与数据倒卖之上；正规经营毛利率普遍不足 20%。国产模型价格仅为 GPT 的 1/10，叠加孙宇晨、傅盛、特朗普家族等大玩家入场，个人与小团队的套利窗口已关闭。"
+    },
+    {
+      "id": "s03",
+      "layout": "S19",
+      "kicker": "— 01",
+      "footer": "03 / 10",
+      "title": "系统性无法取得完整合规身份",
+      "cards": [
+        {
+          "title": "电信经营许可",
+          "body": "须取得 ICP/EDI 等增值电信许可；无证经营达入罪标准可构成非法经营罪。",
+          "accent": false
+        },
+        {
+          "title": "生成式 AI 备案",
+          "body": "OpenAI、Anthropic 等海外模型未在中国备案，中转站客观上无法走通备案程序。",
+          "accent": false
+        },
+        {
+          "title": "数据出境评估",
+          "body": "用户请求路由至境外模型构成数据出境，达规模须履行安全评估或标准合同。",
+          "accent": false
+        },
+        {
+          "title": "上海首例刑拘",
+          "body": "2026 年 5 月站长被刑拘 37 天，涉嫌非法经营罪——刑事风险已兑现。",
+          "accent": true
+        },
+        {
+          "title": "平台协议违规",
+          "body": "OpenAI/Anthropic 禁止 API 转售；账号池轮询本质违反使用协议。",
+          "accent": false
+        },
+        {
+          "title": "个人信息风险",
+          "body": "出售 API 日志可能触犯侵犯公民个人信息罪，去标识后仍可能构成个人信息。",
+          "accent": false
+        }
+      ]
+    },
+    {
+      "id": "s04",
+      "layout": "S08",
+      "kicker": "商业模式分层",
+      "footer": "04 / 10",
+      "title": "暴利表象下的灰色根基",
+      "left": {
+        "tag": "A 正规档",
+        "title": "企业批量采购 转零售",
+        "body": "类似 OpenRouter、Cursor 大客户模式；毛利率普遍不足 20%，合规成本高。",
+        "bullets": [
+          "对公发票与资质投入",
+          "无法与灰色低价竞争",
+          "劣币驱逐良币"
+        ]
+      },
+      "right": {
+        "tag": "B 灰色档",
+        "title": "号池套利 模型替换",
+        "body": "200 美元 Claude 账号可拆分套利至 2000–5000 美元；违规小作坊毛利率常超 50%。",
+        "bullets": [
+          "订阅-API 差价套利",
+          "Token 虚报与缓存截留",
+          "用户对话数据倒卖"
+        ]
+      }
+    },
+    {
+      "id": "s05",
+      "layout": "S20",
+      "kicker": "关键数字",
+      "footer": "05 / 10",
+      "title": "Token 经济的规模与失真",
+      "stats": [
+        {
+          "value": "头部中转站项目，毛利率约50%",
+          "label": "月流水（投资人透露）",
+          "desc": ""
+        },
+        {
+          "value": "DeepSeekAPI仅为GPT系列1/10，削弱中转刚需",
+          "label": "国产模型价格倍率",
+          "desc": ""
+        },
+        {
+          "value": "TokenNav统计，国内外至少92个类似产品在运营",
+          "label": "同类产品数量",
+          "desc": ""
+        },
+        {
+          "value": "CISPA2026论文：逾四成端点模型与宣称不符",
+          "label": "模型指纹验证失败率",
+          "desc": ""
+        }
+      ]
+    },
+    {
+      "id": "s06",
+      "layout": "S11",
+      "kicker": "2026 年 5 月 · 名人资本密集入局",
+      "footer": "06 / 10",
+      "title": "草根时代终结",
+      "timeline": [
+        {
+          "date": "05.01",
+          "title": "孙宇晨 B.AI",
+          "desc": "区块链登录 · USDT 支付",
+          "accent": false
+        },
+        {
+          "date": "05.01",
+          "title": "傅盛 EasyRouter",
+          "desc": "40+ 模型 · 8.5 折",
+          "accent": true
+        },
+        {
+          "date": "05.05",
+          "title": "Trump WLFI",
+          "desc": "WorldRouter · 9999 USD 套餐",
+          "accent": false
+        },
+        {
+          "date": "NOW",
+          "title": "开源 One API",
+          "desc": "33k stars · 技术壁垒消失",
+          "accent": false
+        },
+        {
+          "date": "TREND",
+          "title": "国产模型崛起",
+          "desc": "OpenRouter 中国 Token 超美国",
+          "accent": true
+        }
+      ]
+    },
+    {
+      "id": "s07",
+      "layout": "S13",
+      "kicker": "三条路径",
+      "footer": "07 / 10",
+      "manifesto": "均前景 黯淡",
+      "body": "纯灰色、合规化、转型——没有轻松选项。",
+      "cards": [
+        {
+          "title": "纯灰色运营",
+          "body": "高暴利、高刑事风险；监管已从默许进入主动执法，预期收益被上升风险吞噬。"
+        },
+        {
+          "title": "合规化运营",
+          "body": "备案结构性不可能；合规成本进一步压缩本已微薄的 20% 毛利。"
+        },
+        {
+          "title": "转型出海",
+          "body": "国产 Token 反向输出海外或是新方向，但同样面临合规与竞争压力。"
+        }
+      ]
+    },
+    {
+      "id": "s08",
+      "layout": "S12",
+      "kicker": "21世纪经济报道 · 垦丁律所麻策",
+      "footer": "08 / 10",
+      "title": "拼合规的 阶段到了",
+      "body": "21 财经 2026.05.28：多家民间中转站关闭支付渠道；名人背景平台挂出「不面向中国大陆用户」声明。混乱近三个月后，行业进入收缩期。",
+      "manifesto": "个人与小团队：已经没有搞头"
+    },
+    {
+      "id": "s09",
+      "layout": "S03",
+      "kicker": "",
+      "footer": "09 / 10",
+      "title": "法律风险 · 竞争挤压 · 模式失效",
+      "body": "2026 年在中国做 AI 中转站卖 Token，面临三重挤压。上海首例刑拘划出红线；海外模型无法备案使合规基本不可能；国产降价与大玩家补贴持续收窄利润空间。"
+    },
+    {
+      "id": "s10",
+      "layout": "S10",
+      "kicker": "MANIFESTO",
+      "footer": "CLOSING",
+      "manifesto": "窗口已关。 转向 合规能力。",
+      "body": "有资源的机构或可探索国产 Token 出海、私有化部署，或完全退出大陆市场。",
+      "takeaways": [
+        {
+          "title": "刑事红线已划出",
+          "body": "上海首例刑拘表明灰色运营不再处于观察期。"
+        },
+        {
+          "title": "合规结构性障碍",
+          "body": "海外模型未备案，中转站无法取得完整合规身份。"
+        },
+        {
+          "title": "商业窗口关闭",
+          "body": "国产降价 + 大玩家入场 + 开源消除壁垒，个人套利时代结束。"
+        }
+      ]
+    }
+  ]
+}

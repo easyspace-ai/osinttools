@@ -3,8 +3,6 @@ import { NavLink } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/Logo";
 import {
-  Sparkles,
-  Database,
   Filter,
   History,
   Layers,
@@ -13,10 +11,15 @@ import {
   MessagesSquare,
   LayoutDashboard,
   Settings,
+  Presentation,
+  FileCode,
+  FileSpreadsheet,
+  MonitorPlay,
 } from "lucide-react";
 import { isAdmin, type CurrentUser } from "@/lib/authApi";
 import { canAccessNavItem, NAV_PERMISSION_KEYS } from "@/lib/navPermissions";
 import { WORKBENCH_PREFIX, type WorkbenchTab } from "@/lib/workbenchRoutes";
+import { preloadSlideglance } from "@/features/slideglance/SlideglanceRouteShell";
 
 export type TabType = WorkbenchTab;
 
@@ -36,6 +39,8 @@ interface NavItemConfig {
   description: string;
   adminOnly?: boolean;
   permission?: string;
+  /** hover 时预加载目标页面资源（延迟 150ms，避免快速滑过也触发） */
+  preload?: () => void;
 }
 
 const NAV_ITEMS: NavItemConfig[] = [
@@ -71,6 +76,35 @@ const NAV_ITEMS: NavItemConfig[] = [
     description: "情报工作台与技能",
   },
   {
+    id: "ppt",
+    to: "/ppt",
+    icon: Presentation,
+    label: "PPT",
+    description: "OhMyPPT AI 幻灯片",
+  },
+  {
+    id: "ppthtml",
+    to: "/ppthtml",
+    icon: FileCode,
+    label: "HTML PPT",
+    description: "Guizang 网页演示",
+  },
+  {
+    id: "pptxgenjs",
+    to: "/pptxgenjs",
+    icon: FileSpreadsheet,
+    label: "PptxGenJS",
+    description: "可编辑 PPTX 生成",
+  },
+  {
+    id: "slideglance",
+    to: "/slideglance",
+    icon: MonitorPlay,
+    label: "PPTX 预览",
+    description: "SlideGlance 本地预览",
+    preload: preloadSlideglance,
+  },
+  {
     id: "admin",
     to: "/admin",
     icon: Settings,
@@ -88,13 +122,30 @@ function NavItem({
   label,
   description,
   collapsed,
+  preload,
 }: {
   to: string;
   icon: any;
   label: string;
   description?: string;
   collapsed: boolean;
+  preload?: () => void;
 }) {
+  const preloadTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const onMouseEnter = React.useCallback(() => {
+    if (preload) {
+      preloadTimerRef.current = setTimeout(() => preload(), 150)
+    }
+  }, [preload])
+
+  const onMouseLeave = React.useCallback(() => {
+    if (preloadTimerRef.current) {
+      clearTimeout(preloadTimerRef.current)
+      preloadTimerRef.current = null
+    }
+  }, [])
+
   return (
     <NavLink
       to={to}
@@ -108,6 +159,8 @@ function NavItem({
             : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800/50 hover:text-gray-900 dark:hover:text-gray-200"
         )
       }
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
     >
       {({ isActive }) => (
         <>
@@ -230,13 +283,14 @@ export function SaasSidebar({
         <div className="space-y-0.5">
           {visibleItems.map((item) => (
             <div key={item.id} className="contents">
-              <NavItem
-                to={item.to}
-                icon={item.icon}
-                label={item.label}
-                description={item.description}
-                collapsed={collapsed}
-              />
+          <NavItem
+            to={item.to}
+            icon={item.icon}
+            label={item.label}
+            description={item.description}
+            collapsed={collapsed}
+            preload={item.preload}
+          />
             </div>
           ))}
         </div>

@@ -17,11 +17,14 @@ type Config struct {
 	APIKey  string
 	BaseURL string
 	Model   string
+	// SkillTimeout non-streaming calls (skill assistant). Zero defaults to 120s.
+	SkillTimeout time.Duration
 }
 
 type Client struct {
 	cfg        Config
-	httpClient *http.Client
+	skillHTTP  *http.Client
+	streamHTTP *http.Client
 }
 
 func NewClient(cfg Config) *Client {
@@ -33,13 +36,19 @@ func NewClient(cfg Config) *Client {
 	if model == "" {
 		model = "deepseek-chat"
 	}
+	skillTimeout := cfg.SkillTimeout
+	if skillTimeout <= 0 {
+		skillTimeout = 120 * time.Second
+	}
 	return &Client{
 		cfg: Config{
-			APIKey:  strings.TrimSpace(cfg.APIKey),
-			BaseURL: base,
-			Model:   model,
+			APIKey:       strings.TrimSpace(cfg.APIKey),
+			BaseURL:      base,
+			Model:        model,
+			SkillTimeout: skillTimeout,
 		},
-		httpClient: &http.Client{Timeout: 120 * time.Second},
+		skillHTTP:  &http.Client{Timeout: skillTimeout},
+		streamHTTP: &http.Client{}, // streaming: no client timeout; rely on context
 	}
 }
 
@@ -111,10 +120,13 @@ func (c *Client) Chat(ctx context.Context, messages []Message, extraSystem strin
 	if err != nil {
 		return "", err
 	}
+	return c.chatCompletion(ctx, full)
+}
 
+func (c *Client) chatCompletion(ctx context.Context, messages []Message) (string, error) {
 	body, err := json.Marshal(chatRequest{
 		Model:    c.cfg.Model,
-		Messages: full,
+		Messages: messages,
 	})
 	if err != nil {
 		return "", err
@@ -128,7 +140,7 @@ func (c *Client) Chat(ctx context.Context, messages []Message, extraSystem strin
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+c.cfg.APIKey)
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.skillHTTP.Do(req)
 	if err != nil {
 		return "", err
 	}
@@ -160,13 +172,37 @@ func (c *Client) Chat(ctx context.Context, messages []Message, extraSystem strin
 }
 
 func (c *Client) buildMessages(messages []Message, extraSystem string) ([]Message, error) {
-	if c.cfg.APIKey == "" {
-		return nil, fmt.Errorf("DEEPSEEK_API_KEY is not configured")
-	}
-
 	system := skillAuthorSystemPrompt
 	if strings.TrimSpace(extraSystem) != "" {
 		system += "\n\n## 当前技能上下文\n" + extraSystem
+	}
+	return c.buildMessagesWithSystem(system, messages)
+}
+
+// ChatWithSystem uses a custom system prompt (Studio pipeline, etc.).
+func (c *Client) ChatWithSystem(ctx context.Context, systemPrompt string, messages []Message) (string, error) {
+	full, err := c.buildMessagesWithSystem(strings.TrimSpace(systemPrompt), messages)
+	if err != nil {
+		return "", err
+	}
+	return c.chatCompletion(ctx, full)
+}
+
+// ChatStreamWithSystem streams completion tokens for a custom system prompt.
+func (c *Client) ChatStreamWithSystem(ctx context.Context, systemPrompt string, messages []Message, onChunk func(string) error) error {
+	full, err := c.buildMessagesWithSystem(strings.TrimSpace(systemPrompt), messages)
+	if err != nil {
+		return err
+	}
+	return c.chatStream(ctx, full, onChunk)
+}
+
+func (c *Client) buildMessagesWithSystem(system string, messages []Message) ([]Message, error) {
+	if c.cfg.APIKey == "" {
+		return nil, fmt.Errorf("DEEPSEEK_API_KEY is not configured")
+	}
+	if strings.TrimSpace(system) == "" {
+		return nil, fmt.Errorf("system prompt required")
 	}
 
 	full := make([]Message, 0, len(messages)+1)
@@ -194,10 +230,13 @@ func (c *Client) ChatStream(ctx context.Context, messages []Message, extraSystem
 	if err != nil {
 		return err
 	}
+	return c.chatStream(ctx, full, onChunk)
+}
 
+func (c *Client) chatStream(ctx context.Context, messages []Message, onChunk func(string) error) error {
 	body, err := json.Marshal(chatRequest{
 		Model:    c.cfg.Model,
-		Messages: full,
+		Messages: messages,
 		Stream:   true,
 	})
 	if err != nil {
@@ -213,7 +252,7 @@ func (c *Client) ChatStream(ctx context.Context, messages []Message, extraSystem
 	req.Header.Set("Authorization", "Bearer "+c.cfg.APIKey)
 	req.Header.Set("Accept", "text/event-stream")
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.streamHTTP.Do(req)
 	if err != nil {
 		return err
 	}
@@ -233,6 +272,9 @@ func (c *Client) ChatStream(ctx context.Context, messages []Message, extraSystem
 	scanner.Buffer(buf, 1024*1024)
 
 	for scanner.Scan() {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		line := strings.TrimSpace(scanner.Text())
 		if line == "" || strings.HasPrefix(line, ":") {
 			continue

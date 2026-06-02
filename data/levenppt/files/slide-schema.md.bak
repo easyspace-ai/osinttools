@@ -1,0 +1,200 @@
+# Slide Schema 规范
+
+Claude 在阶段 2 输出的 JSON 结构。渲染脚本读取此格式并调用 PptxGenJS API。
+
+---
+
+## 顶层结构
+
+```json
+{
+  "meta": {
+    "title": "演示文稿标题",
+    "author": "作者",
+    "language": "zh",
+    "layout": "LAYOUT_16x9",
+    "theme": {
+      "primary": "1E3A5F",
+      "secondary": "4ECDC4",
+      "accent": "FF6B6B",
+      "bg_dark": "1A1A2E",
+      "bg_light": "F8F9FA",
+      "text_dark": "2C3E50",
+      "text_light": "FFFFFF",
+      "font_heading": "Calibri",
+      "font_body": "Calibri"
+    }
+  },
+  "slides": [ ...SlideObject ]
+}
+```
+
+---
+
+## SlideObject 类型
+
+### type: "title" — 标题页
+
+```json
+{
+  "type": "title",
+  "bg_color": "1A1A2E",
+  "elements": [
+    { "kind": "shape", "shape": "RECTANGLE", "x": 0, "y": 4.5, "w": 10, "h": 1.125, "fill": "4ECDC4" },
+    { "kind": "text", "text": "演示标题", "x": 0.8, "y": 1.8, "w": 8.4, "h": 1.5,
+      "fontSize": 44, "bold": true, "color": "FFFFFF", "align": "center" },
+    { "kind": "text", "text": "副标题说明", "x": 0.8, "y": 3.5, "w": 8.4, "h": 0.8,
+      "fontSize": 20, "color": "CCCCCC", "align": "center" },
+    { "kind": "text", "text": "2025年 · 公司名称", "x": 0.8, "y": 4.6, "w": 8.4, "h": 0.7,
+      "fontSize": 14, "color": "FFFFFF", "align": "center" }
+  ]
+}
+```
+
+### type: "content" — 内容页（文字 + 图标）
+
+```json
+{
+  "type": "content",
+  "bg_color": "F8F9FA",
+  "elements": [
+    { "kind": "shape", "shape": "RECTANGLE", "x": 0, "y": 0, "w": 10, "h": 0.9, "fill": "1E3A5F" },
+    { "kind": "text", "text": "页面标题", "x": 0.4, "y": 0.1, "w": 9.2, "h": 0.7,
+      "fontSize": 28, "bold": true, "color": "FFFFFF" },
+    { "kind": "bullets", "items": ["要点一", "要点二", "要点三"],
+      "x": 0.6, "y": 1.2, "w": 5.5, "h": 3.8,
+      "fontSize": 18, "color": "2C3E50" },
+    { "kind": "icon_group", "icons": [
+        { "name": "FaCheckCircle", "label": "高效", "color": "4ECDC4" },
+        { "name": "FaRocket", "label": "快速", "color": "FF6B6B" },
+        { "name": "FaShieldAlt", "label": "安全", "color": "1E3A5F" }
+      ],
+      "x": 6.5, "y": 1.2, "w": 3.2, "h": 3.8
+    }
+  ]
+}
+```
+
+### type: "split" — 左右分栏
+
+```json
+{
+  "type": "split",
+  "bg_color": "FFFFFF",
+  "elements": [
+    { "kind": "shape", "shape": "RECTANGLE", "x": 0, "y": 0, "w": 4.8, "h": 5.625, "fill": "1E3A5F" },
+    { "kind": "text", "text": "左侧标题", "x": 0.4, "y": 1.5, "w": 4.0, "h": 2.0,
+      "fontSize": 32, "bold": true, "color": "FFFFFF", "valign": "middle" },
+    { "kind": "text", "text": "右侧正文内容，展开说明左侧标题的核心信息。",
+      "x": 5.2, "y": 1.2, "w": 4.4, "h": 3.5,
+      "fontSize": 16, "color": "2C3E50", "lineSpacingMultiple": 1.4 }
+  ]
+}
+```
+
+### type: "chart" — 图表页
+
+```json
+{
+  "type": "chart",
+  "bg_color": "F8F9FA",
+  "elements": [
+    { "kind": "text", "text": "数据洞察标题", "x": 0.4, "y": 0.2, "w": 9.2, "h": 0.8,
+      "fontSize": 28, "bold": true, "color": "1E3A5F" },
+    { "kind": "chart",
+      "chartType": "BAR",
+      "data": [
+        { "name": "Q1", "values": [45] },
+        { "name": "Q2", "values": [62] },
+        { "name": "Q3", "values": [78] },
+        { "name": "Q4", "values": [91] }
+      ],
+      "x": 0.5, "y": 1.2, "w": 6.0, "h": 3.8,
+      "chartColors": ["1E3A5F", "4ECDC4", "FF6B6B"],
+      "showValue": true,
+      "barDir": "col"
+    },
+    { "kind": "stat_group", "stats": [
+        { "value": "+32%", "label": "同比增长", "color": "4ECDC4" },
+        { "value": "91分", "label": "满意度", "color": "1E3A5F" }
+      ],
+      "x": 6.8, "y": 1.5, "w": 2.8, "h": 3.2
+    }
+  ]
+}
+```
+
+### type: "quote" — 金句/重点页
+
+```json
+{
+  "type": "quote",
+  "bg_color": "1A1A2E",
+  "elements": [
+    { "kind": "shape", "shape": "RECTANGLE", "x": 0.6, "y": 2.0, "w": 0.15, "h": 1.8, "fill": "4ECDC4" },
+    { "kind": "text", "text": "这里放一句有力的核心观点或数据结论。",
+      "x": 1.0, "y": 1.8, "w": 8.0, "h": 2.2,
+      "fontSize": 28, "bold": true, "color": "FFFFFF", "valign": "middle",
+      "italic": true },
+    { "kind": "text", "text": "— 来源 / 作者", "x": 1.0, "y": 4.1, "w": 8.0, "h": 0.6,
+      "fontSize": 14, "color": "AAAAAA" }
+  ]
+}
+```
+
+### type: "grid" — 卡片网格（2x2 或 2x3）
+
+```json
+{
+  "type": "grid",
+  "bg_color": "F8F9FA",
+  "elements": [
+    { "kind": "text", "text": "四大优势", "x": 0.4, "y": 0.15, "w": 9.2, "h": 0.7,
+      "fontSize": 28, "bold": true, "color": "1E3A5F" },
+    { "kind": "card_grid",
+      "columns": 2,
+      "cards": [
+        { "icon": "FaBolt", "icon_color": "FF6B6B", "title": "高性能", "body": "毫秒级响应，日处理百万请求。" },
+        { "icon": "FaLock", "icon_color": "4ECDC4", "title": "安全可靠", "body": "端对端加密，零数据泄露风险。" },
+        { "icon": "FaExpand", "icon_color": "1E3A5F", "title": "弹性扩展", "body": "按需扩容，从 1 到 10 万用户无缝升级。" },
+        { "icon": "FaHeadset", "icon_color": "F39C12", "title": "专业支持", "body": "7x24 技术团队，SLA 保障。" }
+      ],
+      "x": 0.4, "y": 1.0, "w": 9.2, "h": 4.3,
+      "card_fill": "FFFFFF",
+      "title_color": "1E3A5F",
+      "body_color": "666666"
+    }
+  ]
+}
+```
+
+---
+
+## 主题预设
+
+渲染脚本可直接引用以下预设名称：
+
+| 名称 | 主色 | 副色 | 适用场景 |
+|------|------|------|---------|
+| `midnight-exec` | `1E2761` | `CADCFC` | 高端商务、投资路演 |
+| `tech-dark` | `0D1117` | `58A6FF` | 科技产品、开发者向 |
+| `coral-energy` | `F96167` | `F9E795` | 创业路演、活动策划 |
+| `forest-calm` | `2C5F2D` | `97BC62` | 可持续发展、环保 |
+| `teal-trust` | `028090` | `02C39A` | 医疗健康、金融服务 |
+| `minimal-white` | `333333` | `007AFF` | 极简风格、学术报告 |
+
+---
+
+## 元素类型速查
+
+| kind | 说明 | 必填字段 |
+|------|------|---------|
+| `text` | 文字框 | text, x, y, w, h, fontSize, color |
+| `shape` | 形状 | shape, x, y, w, h, fill |
+| `bullets` | 要点列表 | items[], x, y, w, h, fontSize, color |
+| `chart` | 图表 | chartType, data[], x, y, w, h |
+| `icon` | 单个图标 | name(react-icons), x, y, w, h, color |
+| `icon_group` | 图标组 | icons[], x, y, w, h |
+| `card_grid` | 卡片网格 | cards[], columns, x, y, w, h |
+| `stat_group` | 数据看板 | stats[], x, y, w, h |
+| `image` | 图片 | path 或 url, x, y, w, h |

@@ -69,3 +69,16 @@ sessions/
 
 data/skills/custom
 data/skills/custom
+
+# slideglance - PPTX viewer monorepo
+slideglance/target
+slideglance/**/target
+slideglance/**/pkg/
+slideglance/**/dist/
+slideglance/**/build/
+slideglance/.turbo/
+slideglance/.vite/
+slideglance/output/
+slideglance/coverage/
+slideglance/test-results/
+slideglance/*.vsix

@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "updatedAt": "2026-05-31T18:06:58.082Z",
+  "skills": {
+    "oh-my-ppt-chart": {
+      "version": "1.0.0",
+      "source": "builtin",
+      "installedAt": "2026-05-31T18:06:57.637Z",
+      "updatedAt": "2026-05-31T18:06:57.637Z"
+    },
+    "oh-my-ppt-data-anim": {
+      "version": "1.0.0",
+      "source": "builtin",
+      "installedAt": "2026-05-31T18:06:57.861Z",
+      "updatedAt": "2026-05-31T18:06:57.861Z"
+    },
+    "oh-my-ppt-layout": {
+      "version": "1.0.0",
+      "source": "builtin",
+      "installedAt": "2026-05-31T18:06:58.082Z",
+      "updatedAt": "2026-05-31T18:06:58.082Z"
+    }
+  }
+}

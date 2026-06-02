@@ -1,0 +1,161 @@
+{
+  "meta": {
+    "title": "2026年中国AI中转站Token业务可行性深度调研",
+    "author": "OSINT Tools Studio",
+    "language": "zh",
+    "layout": "LAYOUT_16x9",
+    "theme": {
+      "preset": "midnight-exec",
+      "primary": "1E2761",
+      "secondary": "CADCFC",
+      "accent": "F96167",
+      "bg_dark": "1E2761",
+      "bg_light": "F5F7FA",
+      "text_dark": "2C3E50",
+      "text_light": "FFFFFF",
+      "font_heading": "Microsoft YaHei",
+      "font_body": "Microsoft YaHei"
+    }
+  },
+  "slides": [
+    {
+      "type": "title",
+      "bg_color": "1E2761",
+      "elements": [
+        { "kind": "shape", "shape": "RECTANGLE", "x": 0, "y": 4.5, "w": 10, "h": 1.125, "fill": "F96167" },
+        { "kind": "text", "text": "2026年中国AI中转站\nToken业务可行性调研", "x": 0.6, "y": 1.4, "w": 8.8, "h": 1.8, "fontSize": 36, "bold": true, "color": "FFFFFF", "align": "center" },
+        { "kind": "text", "text": "从野蛮生长到合规洗牌——法律、商业与竞争的三重挤压", "x": 0.6, "y": 3.3, "w": 8.8, "h": 0.9, "fontSize": 16, "color": "CADCFC", "align": "center" },
+        { "kind": "text", "text": "2026年5月 · 深度调研报告", "x": 0.6, "y": 4.65, "w": 8.8, "h": 0.5, "fontSize": 13, "color": "FFFFFF", "align": "center" }
+      ]
+    },
+    {
+      "type": "agenda",
+      "bg_color": "F5F7FA",
+      "footer": "来源 · md/ai-relay-station-report.md",
+      "elements": [
+        { "kind": "shape", "shape": "RECTANGLE", "x": 0, "y": 0, "w": 10, "h": 0.08, "fill": "1E2761" },
+        { "kind": "text", "text": "议程", "x": 0.4, "y": 0.25, "w": 9.2, "h": 0.7, "fontSize": 28, "bold": true, "color": "1E2761" },
+        { "kind": "bullets", "items": ["调研摘要与核心结论", "政策法律：三重合规障碍", "利润模型：暴利与灰色根基", "市场竞争：大玩家入场", "三条路径与最终判断"], "x": 0.6, "y": 1.1, "w": 5.2, "h": 3.9, "fontSize": 18, "color": "2C3E50" },
+        { "kind": "shape", "shape": "RECTANGLE", "x": 6.0, "y": 1.0, "w": 3.6, "h": 4.0, "fill": "1E2761" },
+        { "kind": "stat_group", "stats": [
+          { "value": "92+", "label": "同类产品运营中", "color": "CADCFC" },
+          { "value": "37天", "label": "上海首例刑拘", "color": "F96167" },
+          { "value": "1/10", "label": "国产模型相对GPT价", "color": "FFFFFF" }
+        ], "x": 6.3, "y": 1.3, "w": 3.0, "h": 3.4 }
+      ]
+    },
+    {
+      "type": "split",
+      "bg_color": "FFFFFF",
+      "footer": "调研摘要 · 01",
+      "elements": [
+        { "kind": "shape", "shape": "RECTANGLE", "x": 0, "y": 0, "w": 4.6, "h": 5.625, "fill": "1E2761" },
+        { "kind": "text", "text": "核心结论", "x": 0.35, "y": 0.5, "w": 4.0, "h": 0.8, "fontSize": 14, "color": "CADCFC" },
+        { "kind": "text", "text": "窗口\n已基本关闭", "x": 0.35, "y": 1.5, "w": 4.0, "h": 2.2, "fontSize": 34, "bold": true, "color": "FFFFFF", "valign": "middle" },
+        { "kind": "text", "text": "2026年5月", "x": 0.35, "y": 4.5, "w": 4.0, "h": 0.5, "fontSize": 12, "color": "CADCFC" },
+        { "kind": "bullets", "items": [
+          "灰色入局：法律风险极高，刑事红线已兑现",
+          "合规运营：海外模型无法备案，结构性不可能",
+          "商业层面：国产降价+大玩家补贴，套利窗口收窄",
+          "对个人与小团队：已无「搞头」"
+        ], "x": 5.0, "y": 1.0, "w": 4.6, "h": 4.0, "fontSize": 16, "color": "2C3E50" }
+      ]
+    },
+    {
+      "type": "content",
+      "bg_color": "F5F7FA",
+      "footer": "政策法律风险 · 02",
+      "elements": [
+        { "kind": "shape", "shape": "RECTANGLE", "x": 0, "y": 0, "w": 10, "h": 0.85, "fill": "1E2761" },
+        { "kind": "text", "text": "三重合规障碍", "x": 0.4, "y": 0.12, "w": 9.2, "h": 0.65, "fontSize": 26, "bold": true, "color": "FFFFFF" },
+        { "kind": "card_grid", "columns": 3, "cards": [
+          { "icon": "FaGavel", "icon_color": "1E2761", "title": "电信经营许可", "body": "须ICP/EDI等增值电信许可；无证达标准可构成非法经营罪。" },
+          { "icon": "FaFileAlt", "icon_color": "F96167", "title": "生成式AI备案", "body": "OpenAI/Anthropic未在华备案，中转站无法取得完整合规身份。" },
+          { "icon": "FaDatabase", "icon_color": "1E2761", "title": "数据出境评估", "body": "用户请求含个人信息，路由境外须履行安全评估或标准合同。" }
+        ], "x": 0.35, "y": 1.05, "w": 9.3, "h": 4.2, "card_fill": "FFFFFF", "title_color": "1E2761", "body_color": "555555" },
+        { "kind": "text", "text": "2026年5月 · 上海首例站长刑拘37天（非法经营罪）", "x": 0.4, "y": 5.0, "w": 9.2, "h": 0.4, "fontSize": 11, "color": "F96167", "italic": true }
+      ]
+    },
+    {
+      "type": "chart",
+      "bg_color": "FFFFFF",
+      "footer": "利润模型 · 03",
+      "elements": [
+        { "kind": "text", "text": "商业模式与毛利率对比", "x": 0.4, "y": 0.15, "w": 9.2, "h": 0.7, "fontSize": 26, "bold": true, "color": "1E2761" },
+        { "kind": "chart", "chartType": "BAR", "barDir": "col", "data": [
+          { "name": "正规批发零售", "values": [18] },
+          { "name": "灰色号池套利", "values": [52] },
+          { "name": "欺诈/替换", "values": [65] }
+        ], "x": 0.4, "y": 1.0, "w": 5.8, "h": 4.0, "chartColors": ["1E2761", "F96167", "CADCFC"], "showValue": true, "showLegend": false },
+        { "kind": "stat_group", "stats": [
+          { "value": "500万", "label": "头部月流水（估）", "color": "1E2761" },
+          { "value": "50%", "label": "灰色站毛利率", "color": "F96167" },
+          { "value": "<20%", "label": "正规站毛利率", "color": "1E2761" }
+        ], "x": 6.5, "y": 1.3, "w": 3.0, "h": 3.5 },
+        { "kind": "text", "text": "暴利建立在模型替换、Token虚报、数据倒卖之上", "x": 0.4, "y": 5.05, "w": 9.0, "h": 0.35, "fontSize": 10, "color": "888888" }
+      ]
+    },
+    {
+      "type": "grid",
+      "bg_color": "F5F7FA",
+      "footer": "套利手段 · 04",
+      "elements": [
+        { "kind": "text", "text": "六大灰色套利手段", "x": 0.4, "y": 0.15, "w": 9.2, "h": 0.7, "fontSize": 26, "bold": true, "color": "1E2761" },
+        { "kind": "card_grid", "columns": 2, "cards": [
+          { "icon": "FaExchangeAlt", "icon_color": "1E2761", "title": "订阅-API差价", "body": "200美元月租账号可拆分套利至2000-5000美元。" },
+          { "icon": "FaUserSecret", "icon_color": "F96167", "title": "模型替换注水", "body": "逾四成端点指纹验证失败，表现偏差最高47%。" },
+          { "icon": "FaChartLine", "icon_color": "1E2761", "title": "Token虚报", "body": "部分网关实际收费比预期高出62.8%。" },
+          { "icon": "FaShoppingCart", "icon_color": "F96167", "title": "数据转卖", "body": "对话/代码/推理过程打包售予模型厂商训练。" }
+        ], "x": 0.4, "y": 0.95, "w": 9.2, "h": 4.35, "card_fill": "FFFFFF", "title_color": "1E2761", "body_color": "555555" }
+      ]
+    },
+    {
+      "type": "timeline",
+      "bg_color": "FFFFFF",
+      "footer": "市场竞争 · 05",
+      "elements": [
+        { "kind": "text", "text": "2026年5月：大玩家密集入局", "x": 0.4, "y": 0.12, "w": 9.2, "h": 0.7, "fontSize": 26, "bold": true, "color": "1E2761" },
+        { "kind": "timeline", "direction": "horizontal", "items": [
+          { "date": "5/1", "title": "孙宇晨 B.AI", "description": "区块链登录·USDT支付·零KYC", "color": "F96167" },
+          { "date": "5/初", "title": "傅盛 EasyRouter", "description": "8.5折·40+模型·渠道折扣", "color": "1E2761" },
+          { "date": "5/5", "title": "Trump WLFI", "description": "WorldRouter·9999美元套餐", "color": "CADCFC" },
+          { "date": "持续", "title": "国产替代", "description": "DeepSeek等为GPT 1/10价", "color": "1E2761" }
+        ], "x": 0.35, "y": 1.1, "w": 9.3, "h": 4.0 }
+      ]
+    },
+    {
+      "type": "comparison",
+      "bg_color": "F5F7FA",
+      "footer": "路径评估 · 06",
+      "elements": [
+        { "kind": "text", "text": "三条路径均前景黯淡", "x": 0.4, "y": 0.12, "w": 9.2, "h": 0.7, "fontSize": 26, "bold": true, "color": "1E2761" },
+        { "kind": "comparison", "highlight_column": 2, "columns": [
+          { "header": "纯灰色运营", "header_color": "F96167", "items": ["高暴利高刑事风险", "上海首例已立案", "监管进入主动执法", "收益被风险吞噬"] },
+          { "header": "合规化运营", "header_color": "1E2761", "items": ["备案结构性不可能", "毛利率不足20%", "合规成本进一步压缩", "劣币驱逐良币"] },
+          { "header": "转型方向", "header_color": "CADCFC", "items": ["国产Token出海", "企业私有化部署", "退出大陆转海外", "仍面临海外合规竞争"] }
+        ], "x": 0.35, "y": 0.95, "w": 9.3, "h": 4.35 }
+      ]
+    },
+    {
+      "type": "quote",
+      "bg_color": "1E2761",
+      "elements": [
+        { "kind": "shape", "shape": "RECTANGLE", "x": 0.6, "y": 1.8, "w": 0.12, "h": 2.0, "fill": "F96167" },
+        { "kind": "text", "text": "现行框架下，基本无法取得完整的合规身份。", "x": 0.95, "y": 1.6, "w": 8.2, "h": 1.5, "fontSize": 26, "bold": true, "color": "FFFFFF", "valign": "middle", "italic": true },
+        { "kind": "text", "text": "— 麻策 · 浙江垦丁律师事务所 · 21世纪经济报道专访", "x": 0.95, "y": 3.3, "w": 8.2, "h": 0.5, "fontSize": 13, "color": "CADCFC" },
+        { "kind": "text", "text": "混乱近三个月的市场已现降温：多家关闭支付、名人平台强调不面向大陆用户", "x": 0.95, "y": 4.0, "w": 8.2, "h": 0.8, "fontSize": 14, "color": "AAAAAA" }
+      ]
+    },
+    {
+      "type": "closing",
+      "bg_color": "1E2761",
+      "elements": [
+        { "kind": "shape", "shape": "RECTANGLE", "x": 0, "y": 4.7, "w": 10, "h": 0.925, "fill": "F96167" },
+        { "kind": "text", "text": "结论", "x": 0.8, "y": 1.2, "w": 8.4, "h": 0.6, "fontSize": 16, "color": "CADCFC", "align": "center" },
+        { "kind": "text", "text": "对个人与小团队\n「零成本暴富」窗口已结束", "x": 0.8, "y": 1.9, "w": 8.4, "h": 1.6, "fontSize": 32, "bold": true, "color": "FFFFFF", "align": "center" },
+        { "kind": "text", "text": "报告完成：2026年5月29日 · 调研周期 2025.5–2026.5", "x": 0.8, "y": 3.8, "w": 8.4, "h": 0.5, "fontSize": 12, "color": "CADCFC", "align": "center" },
+        { "kind": "text", "text": "Q & A", "x": 0.8, "y": 4.85, "w": 8.4, "h": 0.5, "fontSize": 14, "color": "FFFFFF", "align": "center" }
+      ]
+    }
+  ]
+}

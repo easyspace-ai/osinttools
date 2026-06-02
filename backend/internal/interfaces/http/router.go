@@ -15,6 +15,7 @@ import (
 	"github.com/easyspace-ai/ylmnote/internal/application/chat"
 	"github.com/easyspace-ai/ylmnote/internal/application/artifact"
 	"github.com/easyspace-ai/ylmnote/internal/application/dashboard"
+	"github.com/easyspace-ai/ylmnote/internal/application/export"
 	"github.com/easyspace-ai/ylmnote/internal/application/role"
 	"github.com/easyspace-ai/ylmnote/internal/application/sessionsend"
 	skillgroupsvc "github.com/easyspace-ai/ylmnote/internal/application/skillgroup"
@@ -24,6 +25,7 @@ import (
 	"github.com/easyspace-ai/ylmnote/internal/application/skill"
 	usersvc "github.com/easyspace-ai/ylmnote/internal/application/user"
 	"github.com/easyspace-ai/ylmnote/internal/config"
+	"github.com/easyspace-ai/ylmnote/internal/infrastructure/deepseek"
 	"github.com/easyspace-ai/ylmnote/internal/worker"
 	sdkclient "github.com/easyspace-ai/ylmnote/internal/infrastructure/ai/gateway/client"
 	sdkprovider "github.com/easyspace-ai/ylmnote/internal/infrastructure/ai/gateway/provider"
@@ -300,6 +302,38 @@ func Wire(ctx context.Context, cfg *config.Config, db *persistence.DB) (*WireRes
 	dashboardGroup.Use(AuthMiddleware(authSvc))
 	dashboardHandler.RegisterRoutes(dashboardGroup)
 	slog.Info("[Router] dashboard routes registered")
+
+	studioGroup := api.Group("/studio")
+	studioGroup.Use(AuthMiddleware(authSvc))
+	ohmypptHandler := NewOhMyPPTHandler(cfg)
+	ohmypptHandler.RegisterRoutes(studioGroup)
+	slog.Info("[Router] ohmyppt routes registered at /api/studio/ohmyppt")
+
+	ppthtmlHandler := NewPpthtmlHandler(cfg, projectSvc)
+	ppthtmlGroup := api.Group("/ppthtml")
+	ppthtmlGroup.Use(AuthMiddleware(authSvc))
+	ppthtmlHandler.RegisterRoutes(ppthtmlGroup)
+	slog.Info("[Router] ppthtml routes registered at /api/ppthtml")
+
+	pptxgenjsHandler := NewPptxgenjsHandler(cfg, projectSvc)
+	pptxgenjsGroup := api.Group("/pptxgenjs")
+	pptxgenjsGroup.Use(AuthMiddleware(authSvc))
+	pptxgenjsHandler.RegisterRoutes(pptxgenjsGroup)
+	slog.Info("[Router] pptxgenjs routes registered at /api/pptxgenjs")
+
+	// Export / reflow routes
+	llmClient := deepseek.NewClient(deepseek.Config{
+		APIKey:       cfg.DeepSeek.APIKey,
+		BaseURL:      cfg.DeepSeek.BaseURL,
+		Model:        cfg.DeepSeek.Model,
+		SkillTimeout: time.Duration(cfg.DeepSeek.TimeoutSec) * time.Second,
+	})
+	exportSvc := export.NewService(llmClient)
+	exportHandler := NewExportHandler(exportSvc)
+	exportGroup := api.Group("/export")
+	exportGroup.Use(AuthMiddleware(authSvc))
+	exportHandler.RegisterRoutes(exportGroup)
+	slog.Info("[Router] export routes registered at /api/export")
 
 	// River UI — 定时任务管理（需登录，参考 larafeed /jobs）
 	if riverRuntime.UIHandler != nil {
