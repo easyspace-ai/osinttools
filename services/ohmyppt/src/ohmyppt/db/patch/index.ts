@@ -60,7 +60,8 @@ CREATE TABLE IF NOT EXISTS sessions (
   metadata TEXT,
   design_contract TEXT,
   current_operation_id TEXT,
-  current_commit TEXT
+  current_commit TEXT,
+  user_id TEXT
 );
 
 ${MESSAGES_TABLE_SQL}
@@ -346,6 +347,12 @@ const enforceSessionsSchema = async (client: LibSqlClient): Promise<void> => {
   if (!columns.has('current_commit')) {
     await client.execute('ALTER TABLE sessions ADD COLUMN current_commit TEXT')
   }
+  if (!columns.has('user_id')) {
+    await client.execute('ALTER TABLE sessions ADD COLUMN user_id TEXT')
+  }
+  await client.execute(
+    'CREATE INDEX IF NOT EXISTS idx_sessions_user_updated ON sessions(user_id, updated_at DESC)'
+  )
 }
 
 const enforceProjectsSchema = async (client: LibSqlClient): Promise<void> => {

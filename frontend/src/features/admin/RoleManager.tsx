@@ -19,6 +19,7 @@ const ALL_PERMISSIONS = [
   { key: "menu_xstream", label: "活动栏 · X 信息流" },
   { key: "menu_dashboard", label: "活动栏 · Dashboard" },
   { key: "menu_ai_session", label: "活动栏 · AI 会话" },
+  { key: "menu_ppt", label: "活动栏 · PPT" },
   { key: "menu_admin", label: "活动栏 · 系统管理" },
   { key: "user_manage", label: "管理 · 用户管理" },
   { key: "role_manage", label: "管理 · 权限管理" },

@@ -194,7 +194,14 @@ function AppShell() {
                     }
                   />
                   <Route path="/ai-session/*" element={<OsintSessionRouteShell />} />
-                  <Route path="/ppt/*" element={<StudioRouteShell />} />
+                  <Route
+                    path="/ppt/*"
+                    element={
+                      <RequireNavPermission permission={NAV_PERMISSION_KEYS.ppt}>
+                        <StudioRouteShell />
+                      </RequireNavPermission>
+                    }
+                  />
                   <Route path="/ppthtml/*" element={<PpthtmlRouteShell />} />
                   <Route path="/pptxgenjs/*" element={<PptxgenjsRouteShell />} />
                   <Route path="/slideglance/*" element={<SlideglanceRouteShell />} />

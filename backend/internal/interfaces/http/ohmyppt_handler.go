@@ -20,6 +20,18 @@ type OhMyPPTHandler struct {
 	client     *http.Client
 }
 
+const ohmypptUserIDHeader = "X-User-Id"
+
+func (h *OhMyPPTHandler) attachUserHeader(req *http.Request, c *gin.Context) bool {
+	u, ok := GetCurrentUser(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"detail": "Not authenticated"})
+		return false
+	}
+	req.Header.Set(ohmypptUserIDHeader, u.ID)
+	return true
+}
+
 func NewOhMyPPTHandler(cfg *config.Config) *OhMyPPTHandler {
 	return &OhMyPPTHandler{
 		serviceURL: strings.TrimRight(cfg.OhMyPPTServiceURL, "/"),
@@ -244,6 +256,9 @@ func (h *OhMyPPTHandler) proxyJSON(c *gin.Context, method, url string, body []by
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
+	if !h.attachUserHeader(req, c) {
+		return
+	}
 
 	resp, err := h.client.Do(req)
 	if err != nil {
@@ -275,6 +290,9 @@ func (h *OhMyPPTHandler) proxyBinary(c *gin.Context, method, url string, body []
 	}
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
+	}
+	if !h.attachUserHeader(req, c) {
+		return
 	}
 
 	resp, err := h.client.Do(req)
@@ -320,6 +338,9 @@ func (h *OhMyPPTHandler) forwardSSE(c *gin.Context, method, url string, body []b
 		req.Header.Set("Content-Type", "application/json")
 	}
 	req.Header.Set("Accept", "text/event-stream")
+	if !h.attachUserHeader(req, c) {
+		return
+	}
 
 	resp, err := h.client.Do(req)
 	if err != nil {
@@ -366,6 +387,11 @@ func (h *OhMyPPTHandler) createSessionUpstream(c *gin.Context, body map[string]a
 		return "", err
 	}
 
+	u, ok := GetCurrentUser(c)
+	if !ok {
+		return "", fmt.Errorf("not authenticated")
+	}
+
 	ctx, cancel := contextWithTimeout(c, 30*time.Second)
 	defer cancel()
 
@@ -374,6 +400,7 @@ func (h *OhMyPPTHandler) createSessionUpstream(c *gin.Context, body map[string]a
 		return "", err
 	}
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(ohmypptUserIDHeader, u.ID)
 
 	resp, err := h.client.Do(req)
 	if err != nil {

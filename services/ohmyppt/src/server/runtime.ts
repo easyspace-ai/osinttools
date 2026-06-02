@@ -125,6 +125,7 @@ export async function createOhMyPptSession(args: {
   styleId?: string
   pageCount?: number
   locale?: 'zh' | 'en'
+  userId?: string
   model?: {
     provider?: string
     api_key?: string
@@ -133,7 +134,7 @@ export async function createOhMyPptSession(args: {
     max_tokens?: number
   }
 }): Promise<{ sessionId: string }> {
-  const { cfg, runtime, topic, styleId, pageCount, locale, model } = args
+  const { cfg, runtime, topic, styleId, pageCount, locale, model, userId } = args
   const { db, agentManager, ipc } = runtime
 
   await upsertRequestModel(db, ipc, cfg.defaultModel, model)
@@ -160,7 +161,8 @@ export async function createOhMyPptSession(args: {
     projectDir,
     topic,
     styleId: styleId?.trim() || 'swiss-grid',
-    pageCount: pageCount ?? 8
+    pageCount: pageCount ?? 8,
+    userId
   })
 
   await db.createProject({

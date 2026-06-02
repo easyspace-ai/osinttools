@@ -16,6 +16,11 @@ import {
 } from './runtime.js'
 import { GenerationService } from './generation-service.js'
 import type { GenerateChunkEvent } from '@shared/generation'
+import {
+  accessDeniedResponse,
+  requireUserId,
+  sessionAccess
+} from './auth.js'
 
 const createSessionSchema = z.object({
   topic: z.string().min(1),
@@ -117,6 +122,19 @@ async function buildSessionDetail(runtime: OhMyPptRuntime, sessionId: string) {
   return snapshot
 }
 
+async function loadOwnedSession(
+  runtime: OhMyPptRuntime,
+  sessionId: string,
+  userId: string
+) {
+  const session = await runtime.db.getSession(sessionId)
+  const access = sessionAccess(session, userId)
+  if (access !== 'ok') {
+    return { session: null, access: access as 'missing' | 'forbidden' }
+  }
+  return { session, access: 'ok' as const }
+}
+
 export function createApp(cfg: ServiceConfig) {
   const app = new Hono()
 
@@ -145,11 +163,13 @@ export function createApp(cfg: ServiceConfig) {
   })
 
   app.get('/v1/sessions', async (c) => {
+    const userId = requireUserId(c)
+    if (userId instanceof Response) return userId
     try {
       const runtime = await getOhMyPptRuntime(cfg)
       const limit = Math.min(parseInt(c.req.query('limit') || '50', 10) || 50, 100)
       const offset = Math.max(parseInt(c.req.query('offset') || '0', 10) || 0, 0)
-      const rows = await runtime.db.listSessions(limit, offset)
+      const rows = await runtime.db.listSessions(userId, limit, offset)
       const sessions = await Promise.all(
         rows.map(async (row) => {
           const detail = await buildSessionDetail(runtime, row.id)
@@ -163,6 +183,8 @@ export function createApp(cfg: ServiceConfig) {
   })
 
   app.post('/v1/sessions', async (c) => {
+    const userId = requireUserId(c)
+    if (userId instanceof Response) return userId
     const body = await c.req.json().catch(() => null)
     const parsed = createSessionSchema.safeParse(body)
     if (!parsed.success) {
@@ -178,7 +200,8 @@ export function createApp(cfg: ServiceConfig) {
         styleId: input.style_id,
         pageCount: input.page_count,
         locale: input.locale,
-        model: input.model
+        model: input.model,
+        userId
       })
       const detail = await buildSessionDetail(runtime, sessionId)
       return c.json({ session: { id: sessionId, ...detail?.session } }, 201)
@@ -188,9 +211,16 @@ export function createApp(cfg: ServiceConfig) {
   })
 
   app.get('/v1/sessions/:id', async (c) => {
+    const userId = requireUserId(c)
+    if (userId instanceof Response) return userId
     try {
       const runtime = await getOhMyPptRuntime(cfg)
-      const detail = await buildSessionDetail(runtime, c.req.param('id'))
+      const sessionId = c.req.param('id')
+      const owned = await loadOwnedSession(runtime, sessionId, userId)
+      if (owned.access !== 'ok') {
+        return accessDeniedResponse(c, owned.access)
+      }
+      const detail = await buildSessionDetail(runtime, sessionId)
       if (!detail?.session) return c.json({ error: 'session not found' }, 404)
       return c.json({ session: detail.session, pages: detail.pages })
     } catch (err) {
@@ -199,6 +229,8 @@ export function createApp(cfg: ServiceConfig) {
   })
 
   app.patch('/v1/sessions/:id', async (c) => {
+    const userId = requireUserId(c)
+    if (userId instanceof Response) return userId
     const sessionId = c.req.param('id')
     const body = await c.req.json().catch(() => null)
     const parsed = updateSessionSchema.safeParse(body)
@@ -208,8 +240,10 @@ export function createApp(cfg: ServiceConfig) {
 
     try {
       const runtime = await getOhMyPptRuntime(cfg)
-      const session = await runtime.db.getSession(sessionId)
-      if (!session) return c.json({ error: 'session not found' }, 404)
+      const owned = await loadOwnedSession(runtime, sessionId, userId)
+      if (owned.access !== 'ok') {
+        return accessDeniedResponse(c, owned.access)
+      }
       await runtime.db.updateSessionTitle(sessionId, parsed.data.title)
       return c.json({ ok: true, title: parsed.data.title })
     } catch (err) {
@@ -218,11 +252,15 @@ export function createApp(cfg: ServiceConfig) {
   })
 
   app.delete('/v1/sessions/:id', async (c) => {
+    const userId = requireUserId(c)
+    if (userId instanceof Response) return userId
     const sessionId = c.req.param('id')
     try {
       const runtime = await getOhMyPptRuntime(cfg)
-      const session = await runtime.db.getSession(sessionId)
-      if (!session) return c.json({ error: 'session not found' }, 404)
+      const owned = await loadOwnedSession(runtime, sessionId, userId)
+      if (owned.access !== 'ok') {
+        return accessDeniedResponse(c, owned.access)
+      }
 
       runtime.agentManager.removeSession(sessionId)
 
@@ -246,9 +284,15 @@ export function createApp(cfg: ServiceConfig) {
   })
 
   app.get('/v1/sessions/:id/pages/:pageId', async (c) => {
+    const userId = requireUserId(c)
+    if (userId instanceof Response) return userId
     try {
       const runtime = await getOhMyPptRuntime(cfg)
       const sessionId = c.req.param('id')
+      const owned = await loadOwnedSession(runtime, sessionId, userId)
+      if (owned.access !== 'ok') {
+        return accessDeniedResponse(c, owned.access)
+      }
       const pageId = c.req.param('pageId')
       const htmlPath = await runtime.ipc.assertPathInAllowedRoots({
         filePath: `${pageId}.html`,
@@ -265,10 +309,14 @@ export function createApp(cfg: ServiceConfig) {
   })
 
   app.post('/v1/sessions/:id/generate', async (c) => {
+    const userId = requireUserId(c)
+    if (userId instanceof Response) return userId
     const sessionId = c.req.param('id')
     const runtime = await getOhMyPptRuntime(cfg)
-    const session = await runtime.db.getSession(sessionId)
-    if (!session) return c.json({ error: 'session not found' }, 404)
+    const owned = await loadOwnedSession(runtime, sessionId, userId)
+    if (owned.access !== 'ok') {
+      return accessDeniedResponse(c, owned.access)
+    }
 
     const body = await c.req.json().catch(() => ({}))
     const parsed = generateSchema.safeParse(body)
@@ -310,9 +358,15 @@ export function createApp(cfg: ServiceConfig) {
   })
 
   app.post('/v1/sessions/:id/export', async (c) => {
+    const userId = requireUserId(c)
+    if (userId instanceof Response) return userId
     const sessionId = c.req.param('id')
     const runtime = await getOhMyPptRuntime(cfg)
-    const session = await runtime.db.getSession(sessionId)
+    const owned = await loadOwnedSession(runtime, sessionId, userId)
+    if (owned.access !== 'ok') {
+      return accessDeniedResponse(c, owned.access)
+    }
+    const session = owned.session
     if (!session) return c.json({ error: 'session not found' }, 404)
 
     const body = await c.req.json().catch(() => ({ format: 'zip' }))

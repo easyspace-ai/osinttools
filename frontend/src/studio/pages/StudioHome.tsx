@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { ArrowUp, FileUp, Loader2, MoreVertical, Pencil, Plus, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -178,8 +178,8 @@ function RecentCard({
 
 export default function StudioHome() {
   const navigate = useNavigate()
+  const location = useLocation()
   const fileRef = useRef<HTMLInputElement>(null)
-  const [sessions, setSessions] = useState<OhMyPptSessionSummary[]>([])
   const [styles, setStyles] = useState<OhMyPptStyle[]>([])
   const [styleId, setStyleId] = useState('')
   const [loading, setLoading] = useState(true)
@@ -189,7 +189,7 @@ export default function StudioHome() {
   const [mdPreview, setMdPreview] = useState('')
   const [fileName, setFileName] = useState('')
   const [pageCount, setPageCount] = useState(8)
-  const [generationMode, setGenerationMode] = useState<PptEngine>('ohmyppt')
+  const [generationMode, setGenerationMode] = useState<PptEngine>('pptxgenjs')
   const [theme, setTheme] = useState('midnight-exec')
   const [recentItems, setRecentItems] = useState<RecentItem[]>([])
   const [renameTarget, setRenameTarget] = useState<OhMyPptSessionSummary | null>(null)
@@ -206,7 +206,6 @@ export default function StudioHome() {
         ohmypptApi.listStyles(),
         pptxgenjsApi.listProjects().catch(() => []),
       ])
-      setSessions(list)
       setStyles(styleList)
       if (!styleId && styleList.length > 0) {
         setStyleId(styleList[0].id)
@@ -235,7 +234,7 @@ export default function StudioHome() {
 
   useEffect(() => {
     void load()
-  }, [load])
+  }, [load, location.pathname])
 
   const handleFile = async (file: File) => {
     const err = validateMdFile(file)
@@ -298,11 +297,9 @@ export default function StudioHome() {
     setError('')
     try {
       await ohmypptApi.updateSessionTitle(renameTarget.id, title)
-      setSessions((prev) =>
-        prev.map((item) => (item.id === renameTarget.id ? { ...item, title } : item)),
-      )
       setRenameTarget(null)
       setRenameValue('')
+      await load()
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : '重命名失败')
     } finally {
@@ -316,8 +313,8 @@ export default function StudioHome() {
     setError('')
     try {
       await ohmypptApi.deleteSession(deleteTarget.id)
-      setSessions((prev) => prev.filter((item) => item.id !== deleteTarget.id))
       setDeleteTarget(null)
+      await load()
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : '删除失败')
     } finally {
@@ -464,24 +461,32 @@ export default function StudioHome() {
           <div className="flex justify-center py-16 text-sm text-gray-400">
             <Loader2 className="mr-2 animate-spin" size={16} /> 加载中…
           </div>
-        ) : sessions.length === 0 ? (
+        ) : recentItems.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-gray-200 py-16 text-center text-sm text-gray-400">
             暂无会话，输入主题开始创建
           </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {sessions.map((s) => (
-              <RecentCard
-                key={s.id}
-                item={{ kind: 'ohmyppt', session: s }}
-                onOpen={() => navigate(studioProjectPath(s.id))}
-                onRename={() => {
-                  setRenameTarget(s)
-                  setRenameValue(s.title || '')
-                }}
-                onDelete={() => setDeleteTarget(s)}
-              />
-            ))}
+            {recentItems.map((item) =>
+              item.kind === 'pptxgenjs' ? (
+                <RecentCard
+                  key={`pptx-${item.id}`}
+                  item={item}
+                  onOpen={() => navigate(studioProjectPath(item.id, 'pptxgenjs'))}
+                />
+              ) : (
+                <RecentCard
+                  key={`ohm-${item.session.id}`}
+                  item={item}
+                  onOpen={() => navigate(studioProjectPath(item.session.id, 'ohmyppt'))}
+                  onRename={() => {
+                    setRenameTarget(item.session)
+                    setRenameValue(item.session.title || '')
+                  }}
+                  onDelete={() => setDeleteTarget(item.session)}
+                />
+              ),
+            )}
           </div>
         )}
       </div>

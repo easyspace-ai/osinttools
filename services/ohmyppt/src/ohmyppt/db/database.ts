@@ -47,6 +47,8 @@ export interface Session {
   designContract?: string | null
   currentOperationId?: string | null
   currentCommit?: string | null
+  userId?: string | null
+  user_id?: string | null
 }
 
 export interface Message {
@@ -296,9 +298,11 @@ export class PPTDatabase {
     referenceDocumentPath?: string | null
     provider: string
     model: string
+    userId?: string | null
   }): Promise<string> {
     const id = data.id || crypto.randomUUID()
     const now = Math.floor(Date.now() / 1000)
+    const userId = data.userId?.trim() || null
 
     await this.db
       .insert(schema.sessions)
@@ -312,6 +316,7 @@ export class PPTDatabase {
         status: 'active',
         provider: data.provider,
         model: data.model,
+        userId,
         createdAt: now,
         updatedAt: now,
         metadata: null
@@ -397,11 +402,16 @@ export class PPTDatabase {
       .run()
   }
 
-  async listSessions(limit = 50, offset = 0): Promise<Session[]> {
+  async listSessions(userId?: string | null, limit = 50, offset = 0): Promise<Session[]> {
+    const conditions = [ne(schema.sessions.status, 'archived')]
+    const ownerId = userId?.trim()
+    if (ownerId) {
+      conditions.push(eq(schema.sessions.userId, ownerId))
+    }
     const results = await this.db
       .select()
       .from(schema.sessions)
-      .where(ne(schema.sessions.status, 'archived'))
+      .where(and(...conditions))
       .orderBy(desc(schema.sessions.updatedAt))
       .limit(limit)
       .offset(offset)

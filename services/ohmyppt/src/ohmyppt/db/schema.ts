@@ -15,7 +15,8 @@ export const sessions = sqliteTable('sessions', {
   metadata: text('metadata'),
   designContract: text('design_contract'),
   currentOperationId: text('current_operation_id'),
-  currentCommit: text('current_commit')
+  currentCommit: text('current_commit'),
+  userId: text('user_id')
 })
 
 export const messages = sqliteTable('messages', {
