@@ -75,6 +75,15 @@ slideglance/target
 slideglance/**/target
 slideglance/**/pkg/
 slideglance/**/dist/
+# frontend 依赖的 workspace 包：本地预编译后提交，服务端无需 Rust/wasm-pack
+!slideglance/packages/core/dist/
+!slideglance/packages/core/dist/**
+!slideglance/packages/measure/dist/
+!slideglance/packages/measure/dist/**
+!slideglance/packages/builder/dist/
+!slideglance/packages/builder/dist/**
+!slideglance/packages/viewer/dist/
+!slideglance/packages/viewer/dist/**
 slideglance/**/build/
 slideglance/.turbo/
 slideglance/.vite/

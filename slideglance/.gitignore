@@ -8,6 +8,11 @@ Cargo.lock.bak
 pkg/
 **/pkg/
 *.wasm
+# frontend 预编译产物（packages/core|measure/dist 内含 .wasm）
+!packages/core/dist/
+!packages/core/dist/**
+!packages/measure/dist/
+!packages/measure/dist/**
 
 # Node
 node_modules/
@@ -16,6 +21,15 @@ node_modules/
 .npm/
 .yarn/
 dist/
+# 与 osinttools/.gitignore 同步：仅提交 frontend 消费的 workspace 包 dist
+!packages/core/dist/
+!packages/core/dist/**
+!packages/measure/dist/
+!packages/measure/dist/**
+!packages/builder/dist/
+!packages/builder/dist/**
+!packages/viewer/dist/
+!packages/viewer/dist/**
 build/
 # Landing site source pages — apps/landing/build/ holds the Build sub-page
 # source HTML, not a build output. Negate the broad `build/` rule for it.
