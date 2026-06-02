@@ -1,5 +1,5 @@
-# 根目录 make 产物（bin/server、bin/static）
-/bin/
+# 根目录 make 产物：bin/server 本地编译；bin/static/ 由本地 make frontend 构建后提交 git
+bin/server
 
 # 操作系统
 .DS_Store

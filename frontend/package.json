@@ -9,8 +9,8 @@
     "postinstall:ppthtml-export": "npm install --prefix server/ppthtml-export",
     "dev:ppthtml": "pnpm run dev:ppthtml-export & vite --port=6123 --host=0.0.0.0",
     "build:slideglance-deps": "node ../slideglance/scripts/run-build-wasm.mjs && pnpm --filter @slideglance/builder --filter @slideglance/viewer build && find ../slideglance/packages/core/dist ../slideglance/packages/measure/dist -name .gitignore -delete",
-    "build": "vite build",
-    "build:embed-backend": "vite build",
+    "build": "NODE_OPTIONS=--max-old-space-size=8192 vite build",
+    "build:embed-backend": "NODE_OPTIONS=--max-old-space-size=8192 vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit"

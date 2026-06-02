@@ -12,9 +12,20 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: path.resolve(__dirname, '../bin/static'),
       emptyOutDir: true,
+      sourcemap: false,
       rollupOptions: {
         input: {
           main: path.resolve(__dirname, 'index.html'),
+        },
+        output: {
+          manualChunks(id) {
+            if (!id.includes('node_modules')) return;
+            if (id.includes('three') || id.includes('@react-three')) return 'three';
+            if (id.includes('monaco-editor') || id.includes('@monaco-editor')) return 'monaco';
+            if (id.includes('recharts') || id.includes('lightweight-charts')) return 'charts';
+            if (id.includes('html2pdf')) return 'html2pdf';
+            if (id.includes('@slideglance')) return 'slideglance';
+          },
         },
       },
     },

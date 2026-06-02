@@ -15,7 +15,8 @@ cd backend && go run ./cmd/server/main.go
 cd frontend && pnpm install && pnpm dev
 
 # 构建
-make all    # 输出 bin/server + bin/static/
+make frontend   # 本地：构建 bin/static/ 后提交 git
+make all        # 服务端：仅编译 bin/server，使用仓库内 bin/static/
 ```
 
 详见 [doc/PROJECT_OVERVIEW.md](doc/PROJECT_OVERVIEW.md)。
