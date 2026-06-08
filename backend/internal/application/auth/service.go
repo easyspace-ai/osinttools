@@ -124,9 +124,10 @@ func (s *Service) Login(in LoginInput) (*LoginResult, error) {
 	if err := bcrypt.CompareHashAndPassword([]byte(u.HashedPassword), []byte(in.Password)); err != nil {
 		return nil, ErrInvalidCredentials
 	}
-	expireMin := s.cfg.AccessTokenSessionExpireMin
-	if in.RememberMe {
-		expireMin = s.cfg.AccessTokenExpireMin
+	// 登录态统一使用长期 token；「记住我」仅影响前端 localStorage / sessionStorage。
+	expireMin := s.cfg.AccessTokenExpireMin
+	if expireMin <= 0 {
+		expireMin = 525600 // 365 days
 	}
 	expires := time.Now().Add(time.Duration(expireMin) * time.Minute)
 	token, err := s.createJWT(u.ID, expires)
@@ -161,6 +162,30 @@ func (s *Service) UpdateProfile(id string, username, email *string) (*user.User,
 		return nil, err
 	}
 	return u, nil
+}
+
+// RenewAccessToken 为已登录用户签发新的长期 access token（用于临近过期时静默续期）。
+func (s *Service) RenewAccessToken(userID string) (*LoginResult, error) {
+	if strings.TrimSpace(userID) == "" {
+		return nil, ErrInvalidCredentials
+	}
+	if _, err := s.repo.GetByID(userID); err != nil {
+		return nil, ErrInvalidCredentials
+	}
+	expireMin := s.cfg.AccessTokenExpireMin
+	if expireMin <= 0 {
+		expireMin = 525600
+	}
+	expires := time.Now().Add(time.Duration(expireMin) * time.Minute)
+	token, err := s.createJWT(userID, expires)
+	if err != nil {
+		return nil, err
+	}
+	return &LoginResult{
+		AccessToken: token,
+		TokenType:   "bearer",
+		ExpiresIn:   expireMin * 60,
+	}, nil
 }
 
 // Secret 返回 JWT 密钥，供 HTTP 中间件校验 token 使用

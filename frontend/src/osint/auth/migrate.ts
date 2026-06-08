@@ -47,7 +47,6 @@ export function migrateLegacyAuthStorage(): PersistedAuthSlice | null {
         return {
           token: parsed.state.token,
           user: parsed.state.user ?? null,
-          rememberMe: parsed.state.rememberMe !== false,
         }
       }
     } catch {
@@ -61,7 +60,6 @@ export function migrateLegacyAuthStorage(): PersistedAuthSlice | null {
   const slice: PersistedAuthSlice = {
     token,
     user: null,
-    rememberMe: true,
   }
   const payload = JSON.stringify({ state: slice, version: 0 })
   writeRawPersisted(pickPersistStorage(true), payload, OSINT_AUTH_STORAGE_KEY)

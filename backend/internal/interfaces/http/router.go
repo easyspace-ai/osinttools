@@ -282,6 +282,9 @@ func Wire(ctx context.Context, cfg *config.Config, db *persistence.DB) (*WireRes
 	xstreamGroup.Use(AuthMiddleware(authSvc))
 	xstreamHandler.RegisterRoutes(xstreamGroup)
 
+	adminXStreamHandler := NewAdminXStreamHandler(xstreamFetcher)
+	adminXStreamHandler.RegisterRoutes(adminGroup)
+
 	// Dashboard routes
 	dashboardRepo := persistence.NewDashboardRepository(db)
 	wordCloudSvc := dashboard.NewWordCloudService(xstreamRepo)

@@ -19,6 +19,25 @@ export interface DashboardResponse {
   hasMore: boolean
 }
 
+export interface StreamGroup {
+  id: number
+  type: string
+}
+
+export async function fetchStreamGroups(): Promise<StreamGroup[]> {
+  const response = await fetch(`${DASHBOARD_V1}/stream-groups`, { headers: authHeaders() })
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}))
+    const body = err as { error?: string; detail?: string }
+    throw new Error(body.error || body.detail || `Failed to fetch stream groups (${response.status})`)
+  }
+  const data = await response.json()
+  if (!Array.isArray(data)) {
+    throw new Error('Invalid stream groups response')
+  }
+  return data
+}
+
 export interface TopicItem {
   id: number
   name: string
@@ -38,6 +57,19 @@ export interface ScoredContent {
   category: string
   score: number
   date: string
+}
+
+/** 从上游拉取最新一页并写入本地 DB，再刷新页面数据 */
+export async function syncDashboardStream(): Promise<{ status: string; mode?: string }> {
+  const response = await fetch(`${DASHBOARD_V1}/sync`, {
+    method: 'POST',
+    headers: authHeaders(),
+  })
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error || 'Failed to sync dashboard stream')
+  }
+  return response.json()
 }
 
 export async function fetchDashboardItems(

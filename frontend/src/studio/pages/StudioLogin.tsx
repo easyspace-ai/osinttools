@@ -15,7 +15,7 @@ export default function StudioLogin() {
     setLoading(true)
     setError('')
     try {
-      await login(username, password, true)
+      await login(username, password)
       navigate('/')
     } catch (err: any) {
       setError(err.message || '登录失败')

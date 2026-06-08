@@ -88,8 +88,13 @@ export function DashboardOverviewPanel({ artifactRefreshKey = 0, searchKeyword }
     return () => window.clearInterval(t)
   }, [loadWordCloud])
 
+  const prevSessionId = useRef<string | null>(null)
   useEffect(() => {
     if (!dashboardSessionId) return
+    if (prevSessionId.current !== dashboardSessionId) {
+      prevSessionId.current = dashboardSessionId
+      setArtifacts([])
+    }
     void loadArtifacts()
     const t = window.setTimeout(() => void syncArtifactsFromRemote(), 500)
     return () => window.clearTimeout(t)

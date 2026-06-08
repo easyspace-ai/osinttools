@@ -224,7 +224,8 @@ func Load() *Config {
 		cfg.AccessTokenExpireMin = 525600 // 365 days
 	}
 	if cfg.AccessTokenSessionExpireMin == 0 {
-		cfg.AccessTokenSessionExpireMin = 1440 // 24 hours
+		// 与「记住我」一致，避免未勾选记住我时 24h 后被动登出
+		cfg.AccessTokenSessionExpireMin = cfg.AccessTokenExpireMin
 	}
 
 	if cfg.SDK.UploadPath == "" {

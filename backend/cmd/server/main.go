@@ -25,6 +25,11 @@ func main() {
 		os.Exit(1)
 	}
 	defer applog.Close()
+	slog.Info("server_config",
+		slog.String("http_port", cfg.HTTPPort),
+		slog.String("database_url", cfg.DatabaseURL),
+		slog.String("dashboard_session_id", cfg.DashboardSessionID),
+	)
 	db, err := persistence.New(cfg.DatabaseURL, cfg.GORMLogSQL)
 	if err != nil {
 		slog.Error("database_init_failed", slog.Any("err", err))

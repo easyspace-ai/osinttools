@@ -3,7 +3,12 @@ packages:
   - "../slideglance/packages/*"
 
 allowBuilds:
-  msw: set this to true or false
+  '@google/genai': false
+  '@swc/core': false
+  core-js: false
+  esbuild: false
+  msw: false
+  protobufjs: false
 
 catalog:
   react: ^19.2.0

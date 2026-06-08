@@ -28,28 +28,27 @@ export function removeRawPersisted(key = OSINT_AUTH_STORAGE_KEY): void {
   }
 }
 
-export function pickPersistStorage(rememberMe: boolean): WebStorageLike {
-  return rememberMe ? localStorage : sessionStorage
+/** @deprecated Always localStorage; kept for callers that migrated from remember-me routing. */
+export function pickPersistStorage(_rememberMe = true): WebStorageLike {
+  return localStorage
 }
 
-/** Zustand persist adapter: routes to localStorage or sessionStorage based on rememberMe. */
+/** Zustand persist adapter — always uses localStorage (login is remembered by default). */
 export function createRememberAwareStorage() {
   return {
     getItem: (name: string): string | null => {
-      return readRawPersisted(localStorage, name) ?? readRawPersisted(sessionStorage, name)
+      const fromLocal = readRawPersisted(localStorage, name)
+      if (fromLocal) return fromLocal
+      const fromSession = readRawPersisted(sessionStorage, name)
+      if (fromSession) {
+        writeRawPersisted(localStorage, fromSession, name)
+        sessionStorage.removeItem(name)
+      }
+      return fromSession
     },
     setItem: (name: string, value: string): void => {
-      let rememberMe = true
-      try {
-        const parsed = JSON.parse(value) as { state?: Partial<PersistedAuthSlice> }
-        rememberMe = parsed?.state?.rememberMe !== false
-      } catch {
-        rememberMe = true
-      }
-      const target = pickPersistStorage(rememberMe)
-      const other = rememberMe ? sessionStorage : localStorage
-      other.removeItem(name)
-      writeRawPersisted(target, value, name)
+      sessionStorage.removeItem(name)
+      writeRawPersisted(localStorage, value, name)
     },
     removeItem: (name: string): void => {
       try {
@@ -74,7 +73,6 @@ export function readPersistedSlice(): PersistedAuthSlice | null {
     return {
       token: state.token ?? null,
       user: state.user ?? null,
-      rememberMe: state.rememberMe !== false,
     }
   } catch {
     return null

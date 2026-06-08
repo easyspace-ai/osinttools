@@ -1,46 +1,35 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { Loader2, Plus, RefreshCw, Trash2, ExternalLink, Zap, Search, X } from 'lucide-react'
+import { Loader2, RefreshCw, ExternalLink, Zap, Search, X, Link2 } from 'lucide-react'
 import { WorkbenchLayout } from '@/components/layout/WorkbenchLayout'
 import { useWorkbenchChrome } from '@/components/layout/WorkbenchChromeContext'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import {
   fetchDashboardItems,
   backfillDashboardItems,
   searchDashboardItems,
-  fetchTopics,
-  createTopic,
-  deleteTopic,
-  fetchScoredContent,
+  fetchStreamGroups,
+  syncDashboardStream,
   triggerAggregator,
   type DashboardItem,
-  type TopicItem,
-  type ScoredContent,
 } from '@/lib/dashboardApi'
 import { cn } from '@/lib/utils'
 import { DashboardOverviewPanel } from './DashboardOverviewPanel'
 
 const BATCH_LIMIT = 50
-const STREAM_TYPES = ['重点国家', '安全事件', '自然灾害']
+const STREAM_SYNC_INTERVAL_MS = 10 * 60 * 1000
 
-function formatDateFull(dateStr: string): string {
-  try {
-    const d = new Date(dateStr)
-    if (isNaN(d.getTime())) return dateStr
-    return d.toLocaleString('zh-CN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-    })
-  } catch {
-    return dateStr
-  }
+type LinkFilter = {
+  keyword: string
+  sourceType: string
+  sourceItemId: number
+}
+
+function extractLinkKeyword(item: DashboardItem): string {
+  const hashtag = item.content.match(/#([\w\u4e00-\u9fff]+)/)
+  if (hashtag?.[1] && hashtag[1].length >= 2) return hashtag[1]
+  if (item.userName.trim()) return item.userName.trim()
+  return item.userId.trim()
 }
 
 function highlightKeyword(text: string, keyword: string): ReactNode {
@@ -96,24 +85,28 @@ function StreamColumn({
   onBackfill,
   onRefresh,
   fetching,
-  searchKeyword,
-  searchMode,
+  highlightKeyword: highlight,
+  filterMode,
+  selectedItemId,
+  linkSourceType,
+  onItemClick,
 }: {
   type: string
   items: DashboardItem[]
   totalCount: number
   loading: boolean
   loadingMore: boolean
-  /** 本地 DB 还有更多：无限滚动自动加载 */
   localHasMore: boolean
-  /** 本地已见底：显示按钮，点击从第三方拉历史 */
   showBackfillButton: boolean
   onLoadMoreLocal: () => void
   onBackfill: () => void
   onRefresh: () => void
   fetching: boolean
-  searchKeyword?: string
-  searchMode?: boolean
+  highlightKeyword?: string
+  filterMode?: 'search' | 'link' | false
+  selectedItemId?: number | null
+  linkSourceType?: string | null
+  onItemClick?: (item: DashboardItem) => void
 }) {
   const scrollRootRef = useRef<HTMLDivElement | null>(null)
 
@@ -141,229 +134,112 @@ function StreamColumn({
   }, [localHasMore, loadingMore, loading, onLoadMoreLocal])
 
   return (
-    <div className="flex h-full flex-col bg-white dark:bg-slate-950">
+    <div className="flex h-full min-w-[160px] flex-col bg-white dark:bg-slate-950">
       <div className="shrink-0 border-b border-slate-200 px-3 py-2.5 dark:border-slate-800">
         <div className="flex items-center justify-between">
-          <h2 className="text-[13px] font-semibold text-slate-900 dark:text-slate-50">{type}</h2>
+          <h2 className="truncate text-[13px] font-semibold text-slate-900 dark:text-slate-50">{type}</h2>
           <Button
             variant="ghost"
             size="sm"
             onClick={onRefresh}
-            disabled={fetching}
-            className="h-6 w-6 p-0"
+            disabled={fetching || !!filterMode}
+            className="h-6 w-6 shrink-0 p-0"
           >
             {fetching ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
           </Button>
         </div>
         <p className="mt-0.5 text-[10px] text-slate-400">
-          {searchMode ? `匹配 ${items.length} 条` : `${totalCount} 条数据`}
+          {filterMode ? `匹配 ${items.length} 条` : `${totalCount} 条数据`}
+          {filterMode === 'link' && linkSourceType === type && (
+            <span className="ml-1 text-blue-500">· 联动源</span>
+          )}
         </p>
       </div>
       <div ref={scrollRootRef} className="flex min-h-0 flex-1 flex-col">
-      <ScrollArea className="h-full flex-1">
-        {loading ? (
-          <div className="flex h-32 items-center justify-center">
-            <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
-          </div>
-        ) : items.length === 0 ? (
-          <div className="p-4 text-center text-[12px] text-slate-500">
-            {searchMode ? '本列无匹配结果' : '暂无数据'}
-          </div>
-        ) : (
-          <div className="divide-y divide-slate-100 dark:divide-slate-800">
-            {items.map((item) => (
-              <div
-                key={item.id}
-                className="w-full p-3 text-left transition-colors hover:bg-slate-50 dark:hover:bg-slate-900"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-medium text-slate-900 dark:text-slate-200">
-                    {item.userName}
-                  </span>
-                  <span className="text-[10px] text-slate-400">{formatDateShort(item.pubDate)}</span>
-                </div>
-                <p className="mt-1 text-[11px] text-slate-600 dark:text-slate-400 whitespace-pre-wrap break-words">
-                  {searchKeyword ? highlightKeyword(item.content, searchKeyword) : item.content}
-                </p>
-                <div className="mt-1.5 flex items-center gap-2">
-                  <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[9px] text-slate-600 dark:bg-slate-800 dark:text-slate-400">
-                    {item.type}
-                  </span>
-                  {item.link && (
-                    <a
-                      href={item.link}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-0.5 text-[10px] text-blue-500 hover:text-blue-600 hover:underline"
-                    >
-                      <ExternalLink className="h-2.5 w-2.5" />
-                      源文
-                    </a>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-        {loadingMore && (
-          <div className="flex items-center justify-center py-4">
-            <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
-          </div>
-        )}
-        {showBackfillButton && !loading && !loadingMore && (
-          <div className="p-3 text-center">
-            <Button variant="outline" size="sm" onClick={onBackfill} className="text-[11px]">
-              加载更多
-            </Button>
-            <p className="mt-1 text-[9px] text-slate-400">本地数据已读完，点击从监测流拉取更早历史</p>
-          </div>
-        )}
-      </ScrollArea>
-      </div>
-    </div>
-  )
-}
-
-function TopicsPanel({
-  topics,
-  loading,
-  onRefresh,
-  onAdd,
-  onDelete,
-}: {
-  topics: TopicItem[]
-  loading: boolean
-  onRefresh: () => void
-  onAdd: () => void
-  onDelete: (id: number) => void
-}) {
-  return (
-    <div className="flex h-full flex-col">
-      <div className="shrink-0 border-b border-slate-200 px-3 py-2.5 dark:border-slate-800">
-        <div className="flex items-center justify-between">
-          <h2 className="text-[13px] font-semibold text-slate-900 dark:text-slate-50">专题管理</h2>
-          <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onRefresh}
-              className="h-6 w-6 p-0"
-            >
-              <RefreshCw className="h-3 w-3" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onAdd}
-              className="h-6 w-6 p-0 text-blue-600 hover:text-blue-700"
-            >
-              <Plus className="h-3 w-3" />
-            </Button>
-          </div>
-        </div>
-      </div>
-      <ScrollArea className="flex-1">
-        {loading ? (
-          <div className="flex h-24 items-center justify-center">
-            <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
-          </div>
-        ) : topics.length === 0 ? (
-          <div className="p-4 text-center text-[12px] text-slate-500">暂无专题</div>
-        ) : (
-          <div className="divide-y divide-slate-100 dark:divide-slate-800">
-            {topics.map((topic) => (
-              <div
-                key={topic.id}
-                className="group flex items-start justify-between p-3 transition-colors hover:bg-slate-50 dark:hover:bg-slate-900"
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="text-[12px] font-medium text-slate-900 dark:text-slate-200">
-                    {topic.name}
-                  </p>
-                  {topic.description && (
-                    <p className="mt-0.5 line-clamp-2 text-[10px] text-slate-500">
-                      {topic.description}
-                    </p>
-                  )}
-                </div>
-                <button
-                  onClick={() => onDelete(topic.id)}
-                  className="ml-2 mt-0.5 opacity-0 transition-opacity group-hover:opacity-100 p-1 text-slate-400 hover:text-red-500"
-                >
-                  <Trash2 className="h-3 w-3" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </ScrollArea>
-    </div>
-  )
-}
-
-function ScoredContentPanel({
-  items,
-  loading,
-}: {
-  items: ScoredContent[]
-  loading: boolean
-}) {
-  return (
-    <div className="flex h-full flex-col">
-      <div className="shrink-0 border-b border-slate-200 px-3 py-2.5 dark:border-slate-800">
-        <h2 className="text-[13px] font-semibold text-slate-900 dark:text-slate-50">内容列表</h2>
-        <p className="mt-0.5 text-[10px] text-slate-400">{items.length} 条数据</p>
-      </div>
-      <ScrollArea className="flex-1">
-        {loading ? (
-          <div className="flex h-24 items-center justify-center">
-            <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
-          </div>
-        ) : items.length === 0 ? (
-          <div className="p-4 text-center text-[12px] text-slate-500">暂无数据</div>
-        ) : (
-          <div className="divide-y divide-slate-100 dark:divide-slate-800">
-            {items.map((item) => (
-              <div
-                key={item.id}
-                className="p-3 transition-colors hover:bg-slate-50 dark:hover:bg-slate-900"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <p className="text-[12px] font-medium text-slate-900 dark:text-slate-200 line-clamp-2">
-                    {item.title}
-                  </p>
-                  <span
+        <ScrollArea className="h-full flex-1">
+          {loading ? (
+            <div className="flex h-32 items-center justify-center">
+              <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
+            </div>
+          ) : items.length === 0 ? (
+            <div className="p-4 text-center text-[12px] text-slate-500">
+              {filterMode ? '本列无匹配结果' : '暂无数据'}
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-100 dark:divide-slate-800">
+              {items.map((item) => {
+                const isSelected = selectedItemId === item.id
+                const isClickable = !!onItemClick
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => onItemClick?.(item)}
+                    disabled={!isClickable}
                     className={cn(
-                      'shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold',
-                      item.score >= 80
-                        ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-                        : item.score >= 60
-                          ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
-                          : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400',
+                      'w-full p-3 text-left transition-colors',
+                      isClickable && 'cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-900',
+                      isSelected && 'bg-blue-50 ring-1 ring-inset ring-blue-200 dark:bg-blue-950/40 dark:ring-blue-800',
+                      !isClickable && 'cursor-default',
                     )}
                   >
-                    {item.score}
-                  </span>
-                </div>
-                <div className="mt-1 flex items-center gap-2">
-                  <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[9px] text-slate-600 dark:bg-slate-800 dark:text-slate-400">
-                    {item.category}
-                  </span>
-                  <span className="text-[9px] text-slate-400">{formatDateShort(item.date)}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </ScrollArea>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-medium text-slate-900 dark:text-slate-200">
+                        {item.userName}
+                      </span>
+                      <span className="text-[10px] text-slate-400">{formatDateShort(item.pubDate)}</span>
+                    </div>
+                    <p className="mt-1 whitespace-pre-wrap break-words text-[11px] text-slate-600 dark:text-slate-400">
+                      {highlight ? highlightKeyword(item.content, highlight) : item.content}
+                    </p>
+                    <div className="mt-1.5 flex items-center gap-2">
+                      <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[9px] text-slate-600 dark:bg-slate-800 dark:text-slate-400">
+                        {item.type}
+                      </span>
+                      {item.link && (
+                        <a
+                          href={item.link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="flex items-center gap-0.5 text-[10px] text-blue-500 hover:text-blue-600 hover:underline"
+                        >
+                          <ExternalLink className="h-2.5 w-2.5" />
+                          源文
+                        </a>
+                      )}
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+          {loadingMore && (
+            <div className="flex items-center justify-center py-4">
+              <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
+            </div>
+          )}
+          {showBackfillButton && !loading && !loadingMore && (
+            <div className="p-3 text-center">
+              <Button variant="outline" size="sm" onClick={onBackfill} className="text-[11px]">
+                加载更多
+              </Button>
+              <p className="mt-1 text-[9px] text-slate-400">本地数据已读完，点击从监测流拉取更早历史</p>
+            </div>
+          )}
+        </ScrollArea>
+      </div>
     </div>
   )
 }
 
 export function DashboardRouteLayout() {
-  const { leftCollapsed, rightCollapsed } = useWorkbenchChrome()
+  const { leftCollapsed } = useWorkbenchChrome()
 
-  // Stream columns state
+  const [streamTypes, setStreamTypes] = useState<string[]>([])
+  const [streamTypesLoading, setStreamTypesLoading] = useState(true)
+  const [streamTypesError, setStreamTypesError] = useState<string | null>(null)
+
   const [streamItems, setStreamItems] = useState<Record<string, DashboardItem[]>>({})
   const [streamTotalCounts, setStreamTotalCounts] = useState<Record<string, number>>({})
   const [streamLoading, setStreamLoading] = useState<Record<string, boolean>>({})
@@ -393,30 +269,50 @@ export function DashboardRouteLayout() {
     return Math.min(...items.map((i) => i.id))
   }
 
-  // Aggregator trigger state
   const [aggregatorTriggering, setAggregatorTriggering] = useState(false)
   const [aggregatorMessage, setAggregatorMessage] = useState('')
   const [artifactRefreshKey, setArtifactRefreshKey] = useState(0)
 
-  // Topics state
-  const [topics, setTopics] = useState<TopicItem[]>([])
-  const [topicsLoading, setTopicsLoading] = useState(true)
-  const [showAddTopic, setShowAddTopic] = useState(false)
-  const [newTopicName, setNewTopicName] = useState('')
-  const [newTopicDesc, setNewTopicDesc] = useState('')
-
-  // Scored content state
-  const [scoredContent, setScoredContent] = useState<ScoredContent[]>([])
-  const [scoredLoading, setScoredLoading] = useState(true)
-
-  // Search state
   const [searchQuery, setSearchQuery] = useState('')
   const [searchActive, setSearchActive] = useState(false)
   const [searchResults, setSearchResults] = useState<DashboardItem[]>([])
   const [searchTotal, setSearchTotal] = useState(0)
   const [searchLoading, setSearchLoading] = useState(false)
 
-  // Load stream data for a type
+  const [linkFilter, setLinkFilter] = useState<LinkFilter | null>(null)
+  const [linkResults, setLinkResults] = useState<DashboardItem[]>([])
+  const [linkTotal, setLinkTotal] = useState(0)
+  const [linkLoading, setLinkLoading] = useState(false)
+
+  const filterMode: 'search' | 'link' | false = linkFilter
+    ? 'link'
+    : searchActive
+      ? 'search'
+      : false
+
+  const loadStreamGroups = useCallback(async () => {
+    setStreamTypesLoading(true)
+    setStreamTypesError(null)
+    try {
+      const groups = await fetchStreamGroups()
+      const types = groups.map((g) => g.type).filter(Boolean)
+      setStreamTypes(types)
+      if (types.length === 0) {
+        setStreamTypesError('上游未返回任何监测流分类')
+      }
+    } catch (e) {
+      console.error('Failed to load stream groups:', e)
+      setStreamTypes([])
+      setStreamTypesError(e instanceof Error ? e.message : '加载监测流分类失败')
+    } finally {
+      setStreamTypesLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void loadStreamGroups()
+  }, [loadStreamGroups])
+
   const loadStreamData = useCallback(async (type: string, append = false) => {
     const setLoading = append ? setStreamLoadingMore : setStreamLoading
     setLoading((prev) => ({ ...prev, [type]: true }))
@@ -426,7 +322,6 @@ export function DashboardRouteLayout() {
     const offset = append ? (offsetRefs.current[type] ?? 0) : 0
     try {
       const resp = await fetchDashboardItems(type, offset, BATCH_LIMIT)
-
       setStreamItems((prev) => ({
         ...prev,
         [type]: append ? mergeItems(prev[type] || [], resp.items) : resp.items,
@@ -441,23 +336,22 @@ export function DashboardRouteLayout() {
     }
   }, [])
 
-  // Initial load for all stream types
   useEffect(() => {
-    STREAM_TYPES.forEach((type) => {
+    if (streamTypes.length === 0) return
+    streamTypes.forEach((type) => {
       void loadStreamData(type)
     })
-  }, [loadStreamData])
+  }, [streamTypes, loadStreamData])
 
-  // 本地 DB 无限滚动
   const handleLoadMoreLocal = useCallback(
     (type: string) => {
+      if (filterMode) return
       if (!(streamHasMore[type] ?? false)) return
       void loadStreamData(type, true)
     },
-    [loadStreamData, streamHasMore],
+    [loadStreamData, streamHasMore, filterMode],
   )
 
-  // 本地见底后：从第三方拉一页历史并追加展示
   const handleBackfill = useCallback(async (type: string) => {
     setStreamLoadingMore((prev) => ({ ...prev, [type]: true }))
     try {
@@ -481,75 +375,43 @@ export function DashboardRouteLayout() {
     }
   }, [])
 
-  // Refresh a stream type
-  const handleRefresh = useCallback(
-    (type: string) => {
-      setStreamFetching((prev) => ({ ...prev, [type]: true }))
-      void loadStreamData(type).finally(() => {
-        setStreamFetching((prev) => ({ ...prev, [type]: false }))
-      })
+  const syncAndReload = useCallback(
+    async (types: string[]) => {
+      const markFetching = (on: boolean) => {
+        setStreamFetching((prev) => {
+          const next = { ...prev }
+          for (const type of types) next[type] = on
+          return next
+        })
+      }
+      markFetching(true)
+      try {
+        await syncDashboardStream()
+        await Promise.all(types.map((type) => loadStreamData(type)))
+      } catch (e) {
+        console.error('Failed to sync dashboard stream:', e)
+      } finally {
+        markFetching(false)
+      }
     },
     [loadStreamData],
   )
 
-  // Load topics
-  const loadTopics = useCallback(async () => {
-    setTopicsLoading(true)
-    try {
-      const data = await fetchTopics()
-      setTopics(data)
-    } catch (e) {
-      console.error('Failed to load topics:', e)
-    } finally {
-      setTopicsLoading(false)
-    }
-  }, [])
+  const handleRefresh = useCallback(
+    (type: string) => {
+      void syncAndReload([type])
+    },
+    [syncAndReload],
+  )
 
   useEffect(() => {
-    void loadTopics()
-  }, [loadTopics])
+    if (streamTypes.length === 0 || filterMode) return
+    const t = window.setInterval(() => {
+      void syncAndReload(streamTypes)
+    }, STREAM_SYNC_INTERVAL_MS)
+    return () => window.clearInterval(t)
+  }, [streamTypes, filterMode, syncAndReload])
 
-  // Load scored content
-  useEffect(() => {
-    const loadScored = async () => {
-      setScoredLoading(true)
-      try {
-        const data = await fetchScoredContent()
-        setScoredContent(data)
-      } catch (e) {
-        console.error('Failed to load scored content:', e)
-      } finally {
-        setScoredLoading(false)
-      }
-    }
-    void loadScored()
-  }, [])
-
-  // Add topic
-  const handleAddTopic = async () => {
-    if (!newTopicName.trim()) return
-    try {
-      await createTopic({ name: newTopicName.trim(), description: newTopicDesc.trim() })
-      setNewTopicName('')
-      setNewTopicDesc('')
-      setShowAddTopic(false)
-      void loadTopics()
-    } catch (e) {
-      console.error('Failed to create topic:', e)
-    }
-  }
-
-  // Delete topic
-  const handleDeleteTopic = async (id: number) => {
-    try {
-      await deleteTopic(id)
-      void loadTopics()
-    } catch (e) {
-      console.error('Failed to delete topic:', e)
-    }
-  }
-
-  // Trigger aggregator
   const handleTriggerAggregator = async () => {
     setAggregatorTriggering(true)
     setAggregatorMessage('')
@@ -557,31 +419,28 @@ export function DashboardRouteLayout() {
       const result = await triggerAggregator()
       setAggregatorMessage(result.message || '聚合任务已触发')
       setArtifactRefreshKey((k) => k + 1)
-      setTimeout(() => {
-        setAggregatorMessage('')
-      }, 3000)
+      setTimeout(() => setAggregatorMessage(''), 3000)
     } catch (e) {
       setAggregatorMessage(e instanceof Error ? e.message : '触发失败')
-      setTimeout(() => {
-        setAggregatorMessage('')
-      }, 5000)
+      setTimeout(() => setAggregatorMessage(''), 5000)
     } finally {
       setAggregatorTriggering(false)
     }
   }
 
-  // Search handlers
-  const handleSearch = useCallback(async (q: string) => {
+  const runSearch = useCallback(async (q: string) => {
     if (!q.trim()) {
       setSearchActive(false)
       setSearchResults([])
       setSearchQuery('')
       return
     }
+    setLinkFilter(null)
+    setLinkResults([])
     setSearchLoading(true)
     setSearchActive(true)
     try {
-      const resp = await searchDashboardItems(q.trim(), 'all', 0, 100)
+      const resp = await searchDashboardItems(q.trim(), 'all', 0, 200)
       setSearchResults(resp.items)
       setSearchTotal(resp.totalCount)
     } catch (e) {
@@ -597,36 +456,82 @@ export function DashboardRouteLayout() {
     setSearchResults([])
   }, [])
 
-  // Listen for wordcloud click events
+  const runLinkFilter = useCallback(async (filter: LinkFilter) => {
+    setSearchActive(false)
+    setSearchResults([])
+    setSearchQuery('')
+    setLinkFilter(filter)
+    setLinkLoading(true)
+    try {
+      const resp = await searchDashboardItems(filter.keyword, 'all', 0, 200)
+      setLinkResults(resp.items)
+      setLinkTotal(resp.totalCount)
+    } catch (e) {
+      console.error('Link filter failed:', e)
+      setLinkResults([])
+      setLinkTotal(0)
+    } finally {
+      setLinkLoading(false)
+    }
+  }, [])
+
+  const clearLinkFilter = useCallback(() => {
+    setLinkFilter(null)
+    setLinkResults([])
+    setLinkTotal(0)
+  }, [])
+
+  const handleItemClick = useCallback(
+    (item: DashboardItem) => {
+      if (filterMode === 'link' && linkFilter?.sourceItemId === item.id) {
+        clearLinkFilter()
+        return
+      }
+      const keyword = extractLinkKeyword(item)
+      if (!keyword) return
+      void runLinkFilter({
+        keyword,
+        sourceType: item.type,
+        sourceItemId: item.id,
+      })
+    },
+    [filterMode, linkFilter, clearLinkFilter, runLinkFilter],
+  )
+
   useEffect(() => {
     const handler = (e: Event) => {
       const word = (e as CustomEvent<string>).detail
       if (word) {
         setSearchQuery(word)
-        void handleSearch(word)
+        void runSearch(word)
       }
     }
     window.addEventListener('dashboard:wordcloud-click', handler)
     return () => window.removeEventListener('dashboard:wordcloud-click', handler)
-  }, [handleSearch])
+  }, [runSearch])
 
-  const searchItemsByType = useMemo(() => {
+  const activeFilterResults = linkFilter ? linkResults : searchResults
+  const activeFilterTotal = linkFilter ? linkTotal : searchTotal
+  const activeFilterLoading = linkFilter ? linkLoading : searchLoading
+  const activeHighlight = linkFilter?.keyword ?? (searchActive ? searchQuery : undefined)
+
+  const filterItemsByType = useMemo(() => {
     const grouped: Record<string, DashboardItem[]> = {}
-    for (const type of STREAM_TYPES) {
+    for (const type of streamTypes) {
       grouped[type] = []
     }
-    for (const item of searchResults) {
+    for (const item of activeFilterResults) {
       if (grouped[item.type]) {
         grouped[item.type].push(item)
+      } else {
+        grouped[item.type] = [item]
       }
     }
     return grouped
-  }, [searchResults])
+  }, [activeFilterResults, streamTypes])
 
-  // Build left panel with search + 3 stream columns
   const leftPanel = (
     <div className="flex h-full flex-col bg-white dark:bg-slate-950">
-      {/* Search bar */}
       <div className="shrink-0 border-b border-slate-200 px-3 py-2 dark:border-slate-800">
         <div className="relative">
           <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
@@ -638,7 +543,7 @@ export function DashboardRouteLayout() {
               if (!e.target.value.trim()) clearSearch()
             }}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') handleSearch(searchQuery)
+              if (e.key === 'Enter') void runSearch(searchQuery)
             }}
             placeholder="搜索关键词..."
             className="w-full rounded-md border border-slate-200 bg-slate-50 py-1.5 pl-8 pr-8 text-[12px] text-slate-900 outline-none placeholder:text-slate-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500"
@@ -653,25 +558,61 @@ export function DashboardRouteLayout() {
           )}
         </div>
       </div>
-      {searchActive && (
+
+      {filterMode === 'search' && (
         <div className="shrink-0 border-b border-amber-200/80 bg-amber-50 px-3 py-1.5 text-[10px] text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200">
-          {searchLoading ? (
+          {activeFilterLoading ? (
             <span className="inline-flex items-center gap-1.5">
               <Loader2 className="h-3 w-3 animate-spin" />
               正在搜索「{searchQuery}」…
             </span>
-          ) : searchResults.length === 0 ? (
+          ) : activeFilterResults.length === 0 ? (
             <span>未找到与「{searchQuery}」相关的内容</span>
           ) : (
             <span>
-              已按「{searchQuery}」过滤信息流，共 {searchTotal} 条（当前展示 {searchResults.length} 条）
+              已按「{searchQuery}」过滤信息流，共 {activeFilterTotal} 条（当前展示 {activeFilterResults.length} 条）
             </span>
           )}
         </div>
       )}
+
+      {filterMode === 'link' && linkFilter && (
+        <div className="shrink-0 border-b border-blue-200/80 bg-blue-50 px-3 py-1.5 text-[10px] text-blue-900 dark:border-blue-900/50 dark:bg-blue-950/40 dark:text-blue-200">
+          <div className="flex items-center justify-between gap-2">
+            {activeFilterLoading ? (
+              <span className="inline-flex items-center gap-1.5">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                正在联动检索「{linkFilter.keyword}」…
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1">
+                <Link2 className="h-3 w-3" />
+                已按「{linkFilter.keyword}」跨分类联动，共 {activeFilterTotal} 条（展示 {activeFilterResults.length} 条）
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={clearLinkFilter}
+              className="shrink-0 text-blue-600 hover:text-blue-800 dark:text-blue-400"
+            >
+              清除联动
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="shrink-0 border-b border-slate-200 px-3 py-2.5 dark:border-slate-800">
         <div className="flex items-center justify-between">
-          <h2 className="text-[13px] font-semibold text-slate-900 dark:text-slate-50">信息流</h2>
+          <div>
+            <h2 className="text-[13px] font-semibold text-slate-900 dark:text-slate-50">信息流</h2>
+            <p className="mt-0.5 text-[10px] text-slate-400">
+              {streamTypesLoading
+                ? '正在加载分类…'
+                : streamTypes.length > 0
+                  ? `${streamTypes.length} 个分类 · 点击条目可跨栏联动`
+                  : '暂无可用分类'}
+            </p>
+          </div>
           <div className="flex items-center gap-1">
             <Button
               variant="ghost"
@@ -691,11 +632,26 @@ export function DashboardRouteLayout() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => STREAM_TYPES.forEach((type) => handleRefresh(type))}
-              disabled={STREAM_TYPES.some((type) => streamFetching[type] ?? false)}
+              onClick={() => void loadStreamGroups()}
+              disabled={streamTypesLoading}
               className="h-6 w-6 p-0"
+              title="刷新分类"
             >
-              {STREAM_TYPES.some((type) => streamFetching[type] ?? false) ? (
+              {streamTypesLoading ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <RefreshCw className="h-3 w-3" />
+              )}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => void syncAndReload(streamTypes)}
+              disabled={streamTypes.some((type) => streamFetching[type] ?? false) || !!filterMode}
+              className="h-6 w-6 p-0"
+              title="刷新全部数据"
+            >
+              {streamTypes.some((type) => streamFetching[type] ?? false) ? (
                 <Loader2 className="h-3 w-3 animate-spin" />
               ) : (
                 <RefreshCw className="h-3 w-3" />
@@ -707,30 +663,47 @@ export function DashboardRouteLayout() {
           <p className="mt-1 text-[10px] text-green-600 dark:text-green-400">{aggregatorMessage}</p>
         )}
       </div>
-      <div className="flex flex-1 min-h-0 divide-x divide-slate-200 dark:divide-slate-800">
-        {STREAM_TYPES.map((type) => (
-          <div key={type} className="flex-1 min-w-0">
-            <StreamColumn
-              type={type}
-              items={searchActive ? searchItemsByType[type] || [] : streamItems[type] || []}
-              totalCount={streamTotalCounts[type] ?? 0}
-              loading={searchActive ? searchLoading : (streamLoading[type] ?? false)}
-              loadingMore={searchActive ? false : (streamLoadingMore[type] ?? false)}
-              localHasMore={searchActive ? false : (streamHasMore[type] ?? false)}
-              showBackfillButton={
-                !searchActive &&
-                !(streamHasMore[type] ?? false) &&
-                streamUpstreamHasMore[type] !== false
-              }
-              onLoadMoreLocal={() => handleLoadMoreLocal(type)}
-              onBackfill={() => void handleBackfill(type)}
-              onRefresh={() => handleRefresh(type)}
-              fetching={streamFetching[type] ?? false}
-              searchKeyword={searchActive ? searchQuery : undefined}
-              searchMode={searchActive}
-            />
+
+      <div className="flex min-h-0 flex-1 divide-x divide-slate-200 overflow-x-auto dark:divide-slate-800">
+        {streamTypesLoading ? (
+          <div className="flex flex-1 items-center justify-center">
+            <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
           </div>
-        ))}
+        ) : streamTypes.length === 0 ? (
+          <div className="flex flex-1 flex-col items-center justify-center gap-2 px-4 text-center text-[12px] text-slate-500">
+            <p>未获取到监测流分类，请检查接口配置</p>
+            {streamTypesError && (
+              <p className="max-w-md text-[11px] text-amber-600 dark:text-amber-400">{streamTypesError}</p>
+            )}
+          </div>
+        ) : (
+          streamTypes.map((type) => (
+            <div key={type} className="flex min-w-0 flex-1">
+              <StreamColumn
+                type={type}
+                items={filterMode ? filterItemsByType[type] || [] : streamItems[type] || []}
+                totalCount={streamTotalCounts[type] ?? 0}
+                loading={filterMode ? activeFilterLoading : (streamLoading[type] ?? false)}
+                loadingMore={filterMode ? false : (streamLoadingMore[type] ?? false)}
+                localHasMore={filterMode ? false : (streamHasMore[type] ?? false)}
+                showBackfillButton={
+                  !filterMode &&
+                  !(streamHasMore[type] ?? false) &&
+                  streamUpstreamHasMore[type] !== false
+                }
+                onLoadMoreLocal={() => handleLoadMoreLocal(type)}
+                onBackfill={() => void handleBackfill(type)}
+                onRefresh={() => handleRefresh(type)}
+                fetching={streamFetching[type] ?? false}
+                highlightKeyword={activeHighlight}
+                filterMode={filterMode}
+                selectedItemId={linkFilter?.sourceItemId ?? null}
+                linkSourceType={linkFilter?.sourceType ?? null}
+                onItemClick={filterMode === 'search' ? undefined : handleItemClick}
+              />
+            </div>
+          ))
+        )}
       </div>
     </div>
   )
@@ -741,80 +714,20 @@ export function DashboardRouteLayout() {
     </div>
   )
 
-  // Build right panel with topics (top) and scored content (bottom)
-  const rightPanel = (
-    <div className="flex h-full min-h-0 flex-col border-l border-slate-200 bg-white text-slate-800 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200">
-      <div className="flex flex-1 min-h-0 flex-col divide-y divide-slate-200 dark:divide-slate-800">
-        <div className="flex-1 min-h-0">
-          <TopicsPanel
-            topics={topics}
-            loading={topicsLoading}
-            onRefresh={loadTopics}
-            onAdd={() => setShowAddTopic(true)}
-            onDelete={handleDeleteTopic}
-          />
-        </div>
-        <div className="flex-1 min-h-0">
-          <ScoredContentPanel items={scoredContent} loading={scoredLoading} />
-        </div>
-      </div>
-    </div>
-  )
-
   return (
-    <>
-      <WorkbenchLayout
-        className="min-h-0 flex-1 bg-gray-50 dark:bg-slate-950"
-        innerClassName="min-h-0 flex-1 border border-slate-200/90 bg-[#f7f8fa] dark:border-slate-800 dark:bg-slate-950"
-        leftPanelId="dashboard-left"
-        mainPanelId="dashboard-main"
-        rightPanelId="dashboard-right"
-        leftMinPx={700}
-        leftMaxPx={1200}
-        rightMinPx={280}
-        rightMaxPx={400}
-        leftSidebarVisible={!leftCollapsed}
-        rightSidebarVisible={!rightCollapsed}
-        left={leftPanel}
-        main={mainPanel}
-        right={rightPanel}
-      />
-
-      {/* Add Topic Dialog */}
-      <Dialog open={showAddTopic} onOpenChange={setShowAddTopic}>
-        <DialogContent onOpenChange={setShowAddTopic}>
-          <DialogHeader>
-            <DialogTitle>添加专题</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <label className="text-[12px] font-medium text-slate-700 dark:text-slate-300">专题名称</label>
-              <Input
-                value={newTopicName}
-                onChange={(e) => setNewTopicName(e.target.value)}
-                placeholder="请输入专题名称"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-[12px] font-medium text-slate-700 dark:text-slate-300">描述</label>
-              <Textarea
-                value={newTopicDesc}
-                onChange={(e) => setNewTopicDesc(e.target.value)}
-                placeholder="请输入专题描述（可选）"
-                rows={3}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAddTopic(false)}>
-              取消
-            </Button>
-            <Button onClick={handleAddTopic} disabled={!newTopicName.trim()}>
-              确定
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
+    <WorkbenchLayout
+      className="min-h-0 flex-1 bg-gray-50 dark:bg-slate-950"
+      innerClassName="min-h-0 flex-1 border border-slate-200/90 bg-[#f7f8fa] dark:border-slate-800 dark:bg-slate-950"
+      leftPanelId="dashboard-left"
+      mainPanelId="dashboard-main"
+      rightPanelId="dashboard-right"
+      leftMinPx={streamTypes.length > 0 ? Math.min(1200, 160 * streamTypes.length + 80) : 700}
+      leftMaxPx={1600}
+      leftSidebarVisible={!leftCollapsed}
+      rightSidebarVisible={false}
+      left={leftPanel}
+      main={mainPanel}
+      right={null}
+    />
   )
 }

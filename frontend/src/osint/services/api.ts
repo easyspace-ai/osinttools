@@ -459,9 +459,9 @@ export const promptTemplateApi = {
 
 // ============ 认证 API ============
 export const authApi = {
-  login: async (data: { username: string; password: string; remember_me?: boolean }) => {
+  login: async (data: { username: string; password: string }) => {
     const { loginRequest } = await import('@/osint/auth')
-    return loginRequest(data.username, data.password, data.remember_me !== false)
+    return loginRequest(data.username, data.password)
   },
   register: (data: any) =>
     request<any>('/auth/register', { method: 'POST', body: JSON.stringify(data) }),

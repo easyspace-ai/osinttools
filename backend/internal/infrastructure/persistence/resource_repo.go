@@ -52,6 +52,22 @@ func (r *ResourceRepository) GetBySDKFileID(fileID string) (*project.Resource, e
 	return nil, gormErrNotFound
 }
 
+func (r *ResourceRepository) GetByResourceIDAndSessionID(resourceID, sessionID string) (*project.Resource, error) {
+	var m ResourceModel
+	if err := r.db.Where("id = ? AND session_id = ?", resourceID, sessionID).First(&m).Error; err != nil {
+		return nil, err
+	}
+	return toResourceEntity(&m), nil
+}
+
+func (r *ResourceRepository) DeleteByProjectIDExceptSession(projectID, sessionID string) (int64, error) {
+	res := r.db.Where(
+		"project_id = ? AND (session_id IS NULL OR session_id != ?)",
+		projectID, sessionID,
+	).Delete(&ResourceModel{})
+	return res.RowsAffected, res.Error
+}
+
 func (r *ResourceRepository) ListBySessionID(sessionID string) ([]*project.Resource, error) {
 	var list []ResourceModel
 	if err := r.db.Where("session_id = ?", sessionID).Order("created_at DESC").Find(&list).Error; err != nil {

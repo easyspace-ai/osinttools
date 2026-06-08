@@ -1,4 +1,5 @@
 import { authHeaders } from "./authApi";
+import { getAuthenticatedHeaders } from "@/osint/auth";
 
 export interface AdminUser {
   id: string;
@@ -194,4 +195,63 @@ export async function updateAdminSettings(payload: Partial<AdminSettings>): Prom
   const data = (await res.json().catch(() => ({}))) as { detail?: string } & Partial<AdminSettings>;
   if (!res.ok) throw new Error(data.detail || `保存失败 (${res.status})`);
   return data as AdminSettings;
+}
+
+export interface XStreamInitStatus {
+  status: "idle" | "running" | "completed" | "failed" | "cancelled";
+  initDone: boolean;
+  itemCount: number;
+  batchesDone: number;
+  lastBatchStored: number;
+  totalStoredThisRun: number;
+  currentCursor: number;
+  hasMore: boolean;
+  error?: string;
+  startedAt?: string;
+  updatedAt?: string;
+}
+
+function xstreamAdminError(data: { error?: string; detail?: string }, fallback: string, status: number): string {
+  return data.detail || data.error || `${fallback} (${status})`;
+}
+
+export async function fetchXStreamInitStatus(): Promise<XStreamInitStatus> {
+  const res = await fetch("/api/admin/xstream/status", {
+    headers: await getAuthenticatedHeaders(),
+    credentials: "include",
+  });
+  const data = (await res.json().catch(() => ({}))) as { error?: string; detail?: string } & Partial<XStreamInitStatus>;
+  if (!res.ok) throw new Error(xstreamAdminError(data, "加载状态失败", res.status));
+  return data as XStreamInitStatus;
+}
+
+export async function clearXStreamData(): Promise<void> {
+  const res = await fetch("/api/admin/xstream/clear", {
+    method: "POST",
+    headers: await getAuthenticatedHeaders(),
+    credentials: "include",
+  });
+  const data = (await res.json().catch(() => ({}))) as { error?: string; detail?: string };
+  if (!res.ok) throw new Error(xstreamAdminError(data, "清空失败", res.status));
+}
+
+export async function startXStreamInit(clearFirst = true): Promise<void> {
+  const res = await fetch("/api/admin/xstream/init", {
+    method: "POST",
+    headers: { ...(await getAuthenticatedHeaders()), "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ clear_first: clearFirst }),
+  });
+  const data = (await res.json().catch(() => ({}))) as { error?: string; detail?: string };
+  if (!res.ok) throw new Error(xstreamAdminError(data, "启动失败", res.status));
+}
+
+export async function cancelXStreamInit(): Promise<void> {
+  const res = await fetch("/api/admin/xstream/cancel", {
+    method: "POST",
+    headers: await getAuthenticatedHeaders(),
+    credentials: "include",
+  });
+  const data = (await res.json().catch(() => ({}))) as { error?: string; detail?: string };
+  if (!res.ok) throw new Error(xstreamAdminError(data, "取消失败", res.status));
 }

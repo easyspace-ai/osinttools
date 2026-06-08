@@ -18,12 +18,14 @@ export {
   readPersistedSlice,
 } from './storage'
 export { migrateLegacyAuthStorage } from './migrate'
+export { maybeRenewAccessToken, tokenNeedsRenewal } from './session'
 export {
   authHeaders,
   fetchAuthConfig,
   loginRequest,
   registerRequest,
   getMe,
+  renewTokenRequest,
   syncAuthCookie,
   logoutRequest,
   changePassword,
@@ -31,11 +33,14 @@ export {
   isAdmin,
   classifyAuthFailure,
   isAuthHttpError,
+  AuthRequiredError,
 } from './client'
 export {
   useOsintAuthStore,
   getOsintAccessToken,
   getOsintAuthHeaders,
+  ensureValidAccessToken,
+  getAuthenticatedHeaders,
   type OsintAuthStore,
   fetchCurrentUser,
 } from './store'

@@ -1,32 +1,38 @@
 import { create } from 'zustand'
 import { createJSONStorage, persist } from 'zustand/middleware'
 import {
+  AuthRequiredError,
   classifyAuthFailure,
   getMe,
+  isAuthHttpError,
   loginRequest,
   logoutRequest,
   registerRequest,
   syncAuthCookie,
+  authHeaders,
 } from './client'
 import { OSINT_AUTH_STORAGE_KEY } from './constants'
 import { migrateLegacyAuthStorage } from './migrate'
 import { createRememberAwareStorage } from './storage'
+import { maybeRenewAccessToken } from './session'
 import { isTokenExpired } from './token'
 import type { AuthFailureReason, CurrentUser } from './types'
+
+function classifyFailure(err: unknown, token: string | null) {
+  return classifyAuthFailure(err, token, isTokenExpired)
+}
 
 export interface OsintAuthStore {
   token: string | null
   user: CurrentUser | null
-  rememberMe: boolean
   ready: boolean
   lastFailure: AuthFailureReason | null
 
   setToken: (token: string | null) => void
   setUser: (user: CurrentUser | null) => void
-  setRememberMe: (rememberMe: boolean) => void
 
   hydrate: () => Promise<void>
-  login: (loginId: string, password: string, rememberMe?: boolean) => Promise<void>
+  login: (loginId: string, password: string) => Promise<void>
   register: (username: string, contact: string, password: string) => Promise<void>
   logout: () => Promise<void>
   refreshMe: () => Promise<void>
@@ -35,12 +41,12 @@ export interface OsintAuthStore {
 
 async function establishSession(
   token: string,
-  rememberMe: boolean,
   set: (partial: Partial<OsintAuthStore>) => void,
 ): Promise<CurrentUser> {
-  set({ token, rememberMe, lastFailure: null })
-  await syncAuthCookie(token)
-  const me = await getMe(token)
+  const activeToken = await maybeRenewAccessToken(token)
+  set({ token: activeToken, lastFailure: null })
+  await syncAuthCookie(activeToken)
+  const me = await getMe(activeToken)
   set({ user: me })
   return me
 }
@@ -50,13 +56,11 @@ export const useOsintAuthStore = create<OsintAuthStore>()(
     (set, get) => ({
       token: null,
       user: null,
-      rememberMe: true,
       ready: false,
       lastFailure: null,
 
       setToken: (token) => set({ token }),
       setUser: (user) => set({ user }),
-      setRememberMe: (rememberMe) => set({ rememberMe }),
 
       clearSession: (reason = null) => {
         set({ token: null, user: null, lastFailure: reason })
@@ -64,7 +68,7 @@ export const useOsintAuthStore = create<OsintAuthStore>()(
 
       hydrate: async () => {
         migrateLegacyAuthStorage()
-        const { token, rememberMe } = get()
+        const { token } = get()
         if (!token) {
           set({ ready: true, user: null })
           return
@@ -74,30 +78,38 @@ export const useOsintAuthStore = create<OsintAuthStore>()(
           return
         }
         try {
-          await syncAuthCookie(token)
-          const me = await getMe(token)
+          const activeToken = await maybeRenewAccessToken(token)
+          if (activeToken !== token) set({ token: activeToken })
+          await syncAuthCookie(activeToken)
+          const me = await getMe(activeToken)
           set({ user: me, ready: true, lastFailure: null })
         } catch (err) {
-          const kind = classifyAuthFailure(err)
-          if (kind === 'network') {
-            set({ ready: true, lastFailure: 'network' })
+          if (isAuthHttpError(err) && err.status === 401) {
+            set({ token: null, user: null, ready: true, lastFailure: 'expired' })
             return
           }
-          set({ token: null, user: null, ready: true, lastFailure: kind })
+          const kind = classifyFailure(err, get().token)
+          if (kind !== 'expired' || !isTokenExpired(get().token)) {
+            set({
+              ready: true,
+              lastFailure: kind === 'expired' ? 'network' : kind,
+            })
+            return
+          }
+          set({ token: null, user: null, ready: true, lastFailure: 'expired' })
         }
       },
 
-      login: async (loginId, password, rememberMe = true) => {
-        const r = await loginRequest(loginId, password, rememberMe)
-        await establishSession(r.access_token, rememberMe, set)
+      login: async (loginId, password) => {
+        const r = await loginRequest(loginId, password)
+        await establishSession(r.access_token, set)
         set({ ready: true })
       },
 
       register: async (username, contact, password) => {
         await registerRequest(username, contact, password)
-        const rememberMe = get().rememberMe
-        const r = await loginRequest(username, password, rememberMe)
-        await establishSession(r.access_token, rememberMe, set)
+        const r = await loginRequest(username, password)
+        await establishSession(r.access_token, set)
         set({ ready: true })
       },
 
@@ -116,12 +128,12 @@ export const useOsintAuthStore = create<OsintAuthStore>()(
           const me = await getMe(token)
           set({ user: me, lastFailure: null })
         } catch (err) {
-          const kind = classifyAuthFailure(err)
-          if (kind === 'network') {
-            set({ lastFailure: 'network' })
+          const kind = classifyFailure(err, token)
+          if (kind !== 'expired' || !isTokenExpired(token)) {
+            set({ lastFailure: kind === 'expired' ? 'network' : kind })
             return
           }
-          set({ token: null, user: null, lastFailure: kind })
+          set({ token: null, user: null, lastFailure: 'expired' })
         }
       },
     }),
@@ -131,7 +143,6 @@ export const useOsintAuthStore = create<OsintAuthStore>()(
       partialize: (state) => ({
         token: state.token,
         user: state.user,
-        rememberMe: state.rememberMe,
       }),
       onRehydrateStorage: () => (state) => {
         void state?.hydrate()
@@ -148,8 +159,41 @@ export function getOsintAccessToken(): string | null {
 export function getOsintAuthHeaders(): HeadersInit {
   const token = getOsintAccessToken()
   const headers: Record<string, string> = {}
-  if (token) headers.Authorization = `Bearer ${token}`
+  // 过期 token 不放入 Authorization，让浏览器改走 HttpOnly Cookie（避免 401）
+  if (token && !isTokenExpired(token)) {
+    headers.Authorization = `Bearer ${token}`
+  }
   return headers
+}
+
+/** 续期并校验 token；失败时清会话并提示重新登录。 */
+export async function ensureValidAccessToken(): Promise<string> {
+  let token = getOsintAccessToken()
+  if (!token) {
+    throw new AuthRequiredError('请先登录')
+  }
+  token = await maybeRenewAccessToken(token)
+  if (isTokenExpired(token)) {
+    useOsintAuthStore.getState().clearSession('expired')
+    throw new AuthRequiredError('登录已过期，请重新登录')
+  }
+  useOsintAuthStore.getState().setToken(token)
+  await syncAuthCookie(token)
+  try {
+    await getMe(token)
+  } catch (err) {
+    if (isAuthHttpError(err) && err.status === 401) {
+      useOsintAuthStore.getState().clearSession('expired')
+      throw new AuthRequiredError('登录已失效，请重新登录')
+    }
+    throw err
+  }
+  return token
+}
+
+export async function getAuthenticatedHeaders(): Promise<HeadersInit> {
+  const token = await ensureValidAccessToken()
+  return authHeaders(token)
 }
 
 export async function fetchCurrentUser(): Promise<CurrentUser> {

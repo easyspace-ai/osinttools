@@ -25,7 +25,6 @@ export interface AuthLoginResponse {
 export interface PersistedAuthSlice {
   token: string | null
   user: CurrentUser | null
-  rememberMe: boolean
 }
 
 export type AuthFailureReason = 'expired' | 'invalid' | 'network' | 'unknown'

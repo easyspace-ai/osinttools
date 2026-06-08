@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { isTokenExpired, parseJwtPayload } from './token'
-import { pickPersistStorage, createRememberAwareStorage } from './storage'
+import { createRememberAwareStorage } from './storage'
 import { OSINT_AUTH_STORAGE_KEY } from './constants'
 
 function makeJwt(expUnix: number): string {
@@ -26,26 +26,23 @@ describe('osint/auth token', () => {
 })
 
 describe('osint/auth storage', () => {
-  it('routes rememberMe=true to localStorage', () => {
+  it('persists auth to localStorage', () => {
     const storage = createRememberAwareStorage()
-    const value = JSON.stringify({ state: { token: 't', rememberMe: true } })
+    const value = JSON.stringify({ state: { token: 't' } })
     storage.setItem(OSINT_AUTH_STORAGE_KEY, value)
     expect(localStorage.getItem(OSINT_AUTH_STORAGE_KEY)).toBe(value)
     expect(sessionStorage.getItem(OSINT_AUTH_STORAGE_KEY)).toBeNull()
     storage.removeItem(OSINT_AUTH_STORAGE_KEY)
   })
 
-  it('routes rememberMe=false to sessionStorage', () => {
+  it('migrates legacy sessionStorage entry to localStorage on read', () => {
     const storage = createRememberAwareStorage()
-    const value = JSON.stringify({ state: { token: 't', rememberMe: false } })
-    storage.setItem(OSINT_AUTH_STORAGE_KEY, value)
-    expect(sessionStorage.getItem(OSINT_AUTH_STORAGE_KEY)).toBe(value)
-    expect(localStorage.getItem(OSINT_AUTH_STORAGE_KEY)).toBeNull()
+    const value = JSON.stringify({ state: { token: 'legacy' } })
+    sessionStorage.setItem(OSINT_AUTH_STORAGE_KEY, value)
+    localStorage.removeItem(OSINT_AUTH_STORAGE_KEY)
+    expect(storage.getItem(OSINT_AUTH_STORAGE_KEY)).toBe(value)
+    expect(localStorage.getItem(OSINT_AUTH_STORAGE_KEY)).toBe(value)
+    expect(sessionStorage.getItem(OSINT_AUTH_STORAGE_KEY)).toBeNull()
     storage.removeItem(OSINT_AUTH_STORAGE_KEY)
-  })
-
-  it('pickPersistStorage respects rememberMe', () => {
-    expect(pickPersistStorage(true)).toBe(localStorage)
-    expect(pickPersistStorage(false)).toBe(sessionStorage)
   })
 })

@@ -1,4 +1,5 @@
 import { useOsintAuthStore } from './store'
+import { isTokenExpired } from './token'
 
 let redirectingToLogin = false
 
@@ -9,13 +10,20 @@ export type UnauthorizedHandlerOptions = {
 }
 
 /**
- * Centralized 401 handling: clear session only for auth failures, then redirect once.
+ * Centralized 401 handling: only clear session when the JWT is actually expired.
+ * Transient 401 (VPN/proxy/gateway) must not log the user out.
  */
 export function handleUnauthorizedResponse(
   status: number,
   options: UnauthorizedHandlerOptions = {},
 ): void {
   if (status !== 401) return
+
+  const token = useOsintAuthStore.getState().token
+  if (token && !isTokenExpired(token)) {
+    useOsintAuthStore.setState({ lastFailure: 'network' })
+    return
+  }
 
   useOsintAuthStore.getState().clearSession('expired')
 

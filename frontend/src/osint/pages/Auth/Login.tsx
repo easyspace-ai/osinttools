@@ -8,7 +8,6 @@ import { LogoMark } from '@/components/Logo'
 export default function Login() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const [remember, setRemember] = useState(true)
   const [error, setError] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
@@ -29,8 +28,7 @@ export default function Login() {
     try {
       setError('')
       setIsLoading(true)
-      useOsintAuthStore.getState().setRememberMe(remember)
-      await login(username, password, remember)
+      await login(username, password)
       const qs = new URLSearchParams(location.search)
       const redirect = qs.get('redirect')
       navigate(redirect && redirect.startsWith('/') ? redirect : '/')
@@ -155,19 +153,6 @@ export default function Login() {
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
-            </div>
-            
-            <div className="flex items-center justify-between">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                  checked={remember}
-                  onChange={(e) => setRemember(e.target.checked)}
-                />
-                <span className="text-sm text-gray-600">记住登录状态</span>
-              </label>
-            
             </div>
             
             <button

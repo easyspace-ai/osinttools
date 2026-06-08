@@ -3,7 +3,7 @@ import { Mail, Eye, EyeOff, Zap } from "lucide-react";
 import { LogoMark } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
-import { useOsintAuth, useOsintAuthStore } from "@/osint/auth";
+import { useOsintAuth } from "@/osint/auth";
 import { cn } from "@/lib/utils";
 
 interface LoginPageProps {
@@ -15,7 +15,6 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
   const [showPassword, setShowPassword] = React.useState(false);
   const [loginId, setLoginId] = React.useState("");
   const [password, setPassword] = React.useState("");
-  const [remember, setRemember] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [pending, setPending] = React.useState(false);
 
@@ -28,8 +27,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
     }
     setPending(true);
     try {
-      useOsintAuthStore.getState().setRememberMe(remember);
-      await login(loginId.trim(), password, remember);
+      await login(loginId.trim(), password);
       onLoginSuccess();
     } catch (err) {
       setError(err instanceof Error ? err.message : "登录失败");
@@ -52,14 +50,13 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
           <div className="flex items-center gap-3 mb-10">
             <LogoMark />
             <div className="flex flex-col">
-              <span className="text-xl font-bold text-gray-900 dark:text-white">HaiNa Studio</span>
-              <span className="text-gray-500 dark:text-gray-400 text-sm">HaiNa投研平台</span>
+              <span className="text-xl font-bold text-gray-900 dark:text-white">知微海纳</span>
+              <span className="text-gray-500 dark:text-gray-400 text-sm">知微海纳</span>
             </div>
           </div>
 
           <div className="mb-8">
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">欢迎回来</h1>
-            <p className="text-gray-500 dark:text-gray-400">登录您的账户，继续您的量化之旅</p>
           </div>
 
           {error ? (
@@ -123,21 +120,6 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  className="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500/20 bg-gray-50 dark:bg-gray-900"
-                  checked={remember}
-                  onChange={(e) => setRemember(e.target.checked)}
-                  disabled={pending}
-                />
-                <span className="text-sm text-gray-600 dark:text-gray-400">
-                  记住登录状态
-                </span>
-              </label>
             </div>
 
             <Button

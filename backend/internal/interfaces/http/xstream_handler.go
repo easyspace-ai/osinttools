@@ -1,7 +1,6 @@
 package http
 
 import (
-	"context"
 	"database/sql"
 	"log/slog"
 	"strconv"
@@ -97,38 +96,51 @@ func (h *XStreamHandler) LatestIdGET(c *gin.Context) {
 func (h *XStreamHandler) TriggerGET(c *gin.Context) {
 	if h.riverClient != nil {
 		if _, err := h.riverClient.Insert(c.Request.Context(), worker.XStreamSyncArgs{}, nil); err != nil {
-			c.JSON(500, gin.H{"error": err.Error()})
+			slog.Warn("xstream trigger: river insert failed, falling back to direct fetch", slog.Any("err", err))
+			if h.fetcher == nil {
+				c.JSON(500, gin.H{"error": err.Error()})
+				return
+			}
+			if fetchErr := h.fetcher.FetchOnce(c.Request.Context()); fetchErr != nil {
+				c.JSON(500, gin.H{"error": fetchErr.Error()})
+				return
+			}
+			c.JSON(200, gin.H{"status": "fetched", "mode": "direct"})
 			return
 		}
 	} else if h.fetcher != nil {
-		go func() { _ = h.fetcher.FetchOnce(context.Background()) }()
+		if err := h.fetcher.FetchOnce(c.Request.Context()); err != nil {
+			c.JSON(500, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(200, gin.H{"status": "fetched", "mode": "direct"})
+		return
 	}
 	c.JSON(200, gin.H{"status": "triggered"})
 }
 
 func (h *XStreamHandler) InitPOST(c *gin.Context) {
-	if h.riverClient != nil {
-		if _, err := h.riverClient.Insert(c.Request.Context(), worker.XStreamInitArgs{}, nil); err != nil {
-			c.JSON(500, gin.H{"error": err.Error()})
-			return
-		}
-		c.JSON(200, gin.H{"status": "queued"})
-		return
-	}
 	if h.fetcher == nil {
 		c.JSON(500, gin.H{"error": "fetcher not available"})
 		return
 	}
-	err := h.fetcher.Initialize(c.Request.Context())
-	if err != nil {
-		if err == context.Canceled {
-			c.JSON(200, gin.H{"status": "cancelled"})
-			return
-		}
+	if h.fetcher.IsInitRunning() {
+		c.JSON(409, gin.H{"error": "initialization already running"})
+		return
+	}
+	if err := h.fetcher.StartInitialize(false); err != nil {
 		c.JSON(500, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(200, gin.H{"status": "initialized"})
+	c.JSON(202, gin.H{"status": "started"})
+}
+
+func (h *XStreamHandler) InitStatusGET(c *gin.Context) {
+	if h.fetcher == nil {
+		c.JSON(500, gin.H{"error": "fetcher not available"})
+		return
+	}
+	c.JSON(200, h.fetcher.GetInitProgress())
 }
 
 func (h *XStreamHandler) RegisterRoutes(g *gin.RouterGroup) {
@@ -137,4 +149,5 @@ func (h *XStreamHandler) RegisterRoutes(g *gin.RouterGroup) {
 	g.GET("/latest-id", h.LatestIdGET)
 	g.GET("/trigger", h.TriggerGET)
 	g.POST("/init", h.InitPOST)
+	g.GET("/init/status", h.InitStatusGET)
 }

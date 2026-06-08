@@ -58,6 +58,8 @@ func (h *AuthHandler) RegisterRoutes(r *gin.RouterGroup) {
 	authGroup.PATCH("/me", h.updateMe)
 	authGroup.POST("/change-password", h.changePassword)
 	authGroup.POST("/sync-cookie", h.syncCookie)
+	// renew 单独挂宽限中间件，避免临近/刚过期的 token 无法续期
+	r.POST("/renew", RenewAuthMiddleware(h.svc), h.renew)
 }
 
 type registerRequest struct {
@@ -201,6 +203,26 @@ func (h *AuthHandler) login(c *gin.Context) {
 		return
 	}
 	// Cookie 须在 JSON 响应之前写入，否则浏览器收不到（River UI /jobs 依赖此 Cookie）
+	setAuthCookie(c, result.AccessToken, result.ExpiresIn)
+	c.JSON(http.StatusOK, gin.H{
+		"access_token": result.AccessToken,
+		"token_type":   result.TokenType,
+		"expires_in":   result.ExpiresIn,
+	})
+}
+
+// renew 在 token 仍有效时签发新的长期 access token（静默续期，避免临近 exp 被动登出）。
+func (h *AuthHandler) renew(c *gin.Context) {
+	u, ok := GetCurrentUser(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"detail": "Not authenticated"})
+		return
+	}
+	result, err := h.svc.RenewAccessToken(u.ID)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"detail": "Could not renew session"})
+		return
+	}
 	setAuthCookie(c, result.AccessToken, result.ExpiresIn)
 	c.JSON(http.StatusOK, gin.H{
 		"access_token": result.AccessToken,

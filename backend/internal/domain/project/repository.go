@@ -40,6 +40,8 @@ type ResourceRepository interface {
 	GetBySDKFileID(fileID string) (*Resource, error)
 	ListByProjectID(projectID string, resourceType *string) ([]*Resource, error)
 	ListBySessionID(sessionID string) ([]*Resource, error)
+	GetByResourceIDAndSessionID(resourceID, sessionID string) (*Resource, error)
+	DeleteByProjectIDExceptSession(projectID, sessionID string) (int64, error)
 	Update(r *Resource) error
 	Delete(projectID, resourceID string) error
 }

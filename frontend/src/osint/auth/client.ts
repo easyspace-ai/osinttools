@@ -13,11 +13,7 @@ export async function fetchAuthConfig(): Promise<AuthConfig> {
   return res.json() as Promise<AuthConfig>
 }
 
-export async function loginRequest(
-  login: string,
-  password: string,
-  rememberMe = true,
-): Promise<AuthLoginResponse> {
+export async function loginRequest(login: string, password: string): Promise<AuthLoginResponse> {
   const res = await fetch(`${AUTH_API_PREFIX}/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -25,7 +21,7 @@ export async function loginRequest(
     body: JSON.stringify({
       username: login.trim(),
       password,
-      remember_me: rememberMe,
+      remember_me: true,
     }),
   })
   const data = (await res.json().catch(() => ({}))) as { detail?: string } & Partial<AuthLoginResponse>
@@ -76,6 +72,21 @@ export async function getMe(token: string): Promise<CurrentUser> {
     throw err
   }
   return res.json() as Promise<CurrentUser>
+}
+
+export async function renewTokenRequest(token: string): Promise<string> {
+  const res = await fetch(`${AUTH_API_PREFIX}/renew`, {
+    method: 'POST',
+    headers: authHeaders(token),
+    credentials: 'include',
+  })
+  const data = (await res.json().catch(() => ({}))) as { detail?: string; access_token?: string }
+  if (!res.ok || !data.access_token) {
+    const err = new Error(data.detail || `renew failed: ${res.status}`) as Error & { status?: number }
+    err.status = res.status
+    throw err
+  }
+  return data.access_token
 }
 
 export async function syncAuthCookie(token: string): Promise<void> {
@@ -134,6 +145,13 @@ export function isAdmin(user: CurrentUser | null): boolean {
   return user?.role === 'admin'
 }
 
+export class AuthRequiredError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'AuthRequiredError'
+  }
+}
+
 export function isAuthHttpError(err: unknown): err is Error & { status: number } {
   return (
     err instanceof Error &&
@@ -141,9 +159,16 @@ export function isAuthHttpError(err: unknown): err is Error & { status: number }
   )
 }
 
-export function classifyAuthFailure(err: unknown): 'expired' | 'invalid' | 'network' | 'unknown' {
+export function classifyAuthFailure(
+  err: unknown,
+  token?: string | null,
+  isExpired?: (t: string | null | undefined) => boolean,
+): 'expired' | 'invalid' | 'network' | 'unknown' {
   if (isAuthHttpError(err)) {
-    if (err.status === 401) return 'expired'
+    if (err.status === 401) {
+      if (token && isExpired && !isExpired(token)) return 'network'
+      return 'expired'
+    }
     return 'invalid'
   }
   if (err instanceof TypeError) return 'network'
