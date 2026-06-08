@@ -1,6 +1,6 @@
 import { chatPreviewLog } from '@/osint/lib/chatPreviewLog'
 import { API_CONFIG, API_ENDPOINTS } from '@/osint/config/api'
-import { getOsintAccessToken } from '@/osint/auth'
+import { authFetchInit } from '@/osint/auth'
 
 const DB_NAME = 'osint-chat-preview'
 const STORE_NAME = 'blobs'
@@ -181,22 +181,13 @@ export async function seedCachedPreviewFromFile(
   )
 }
 
-function getAuthToken(): string | null {
-  return getOsintAccessToken()
-}
-
 function buildArtifactFetchUrl(resourceId: string, kind: 'preview' | 'download'): string {
   const baseUrl = API_CONFIG.baseUrl || ''
   const endpoint =
     kind === 'preview'
       ? API_ENDPOINTS.projectArtifactPreview(resourceId)
       : API_ENDPOINTS.projectArtifactDownload(resourceId)
-  let url = `${baseUrl}${endpoint}`
-  const token = getAuthToken()
-  if (token) {
-    url += `${url.includes('?') ? '&' : '?'}token=${encodeURIComponent(token)}`
-  }
-  return url
+  return `${baseUrl}${endpoint}`
 }
 
 const DEFAULT_MAX_ATTEMPTS = 3
@@ -232,7 +223,7 @@ async function fetchWithTimeout(
     [timeoutController.signal, userSignal].filter((s): s is AbortSignal => Boolean(s)),
   )
   try {
-    return await fetch(url, { ...init, signal })
+    return await fetch(url, authFetchInit({ ...init, signal }))
   } catch (err) {
     if (userSignal?.aborted) {
       throw err
@@ -534,9 +525,7 @@ export async function loadPreviewBlob(options: {
       }
     }
 
-    const token = getAuthToken()
     const headers: Record<string, string> = { Accept: accept }
-    if (token) headers.Authorization = `Bearer ${token}`
 
     let attempt = 0
     const baseDelay = 1000

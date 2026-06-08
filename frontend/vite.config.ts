@@ -73,6 +73,7 @@ export default defineConfig(({ mode }) => {
         '/api': {
           target: env.VITE_BACKEND_PROXY_TARGET?.trim() || 'http://127.0.0.1:7100',
           changeOrigin: true,
+          cookieDomainRewrite: '',
         },
         /** 与生产一致：经主后端 /daily-api 代理至 DailyAPI，勿直连 7220 */
         '/daily-api': {
@@ -85,6 +86,8 @@ export default defineConfig(({ mode }) => {
             return t.startsWith('http') ? t.replace(/^http/, 'ws') : `ws://${t}`;
           })(),
           ws: true,
+          changeOrigin: true,
+          cookieDomainRewrite: '',
         },
       },
       hmr: process.env.DISABLE_HMR !== 'true',

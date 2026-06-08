@@ -26,9 +26,9 @@ describe('osint/auth token', () => {
 })
 
 describe('osint/auth storage', () => {
-  it('persists auth to localStorage', () => {
+  it('persists user slice to localStorage', () => {
     const storage = createRememberAwareStorage()
-    const value = JSON.stringify({ state: { token: 't' } })
+    const value = JSON.stringify({ state: { user: { id: '1' } } })
     storage.setItem(OSINT_AUTH_STORAGE_KEY, value)
     expect(localStorage.getItem(OSINT_AUTH_STORAGE_KEY)).toBe(value)
     expect(sessionStorage.getItem(OSINT_AUTH_STORAGE_KEY)).toBeNull()
@@ -37,7 +37,7 @@ describe('osint/auth storage', () => {
 
   it('migrates legacy sessionStorage entry to localStorage on read', () => {
     const storage = createRememberAwareStorage()
-    const value = JSON.stringify({ state: { token: 'legacy' } })
+    const value = JSON.stringify({ state: { user: { id: 'legacy' } } })
     sessionStorage.setItem(OSINT_AUTH_STORAGE_KEY, value)
     localStorage.removeItem(OSINT_AUTH_STORAGE_KEY)
     expect(storage.getItem(OSINT_AUTH_STORAGE_KEY)).toBe(value)

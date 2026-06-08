@@ -33,7 +33,7 @@ export function pickPersistStorage(_rememberMe = true): WebStorageLike {
   return localStorage
 }
 
-/** Zustand persist adapter — always uses localStorage (login is remembered by default). */
+/** Zustand persist adapter — caches user profile only (session JWT lives in HttpOnly cookie). */
 export function createRememberAwareStorage() {
   return {
     getItem: (name: string): string | null => {
@@ -69,9 +69,8 @@ export function readPersistedSlice(): PersistedAuthSlice | null {
   try {
     const parsed = JSON.parse(raw) as { state?: Partial<PersistedAuthSlice> }
     const state = parsed?.state
-    if (!state?.token) return null
+    if (!state?.user) return null
     return {
-      token: state.token ?? null,
       user: state.user ?? null,
     }
   } catch {

@@ -1,4 +1,4 @@
-import { authHeaders } from './authApi'
+import { authFetchInit, authHeaders } from './authApi'
 
 export type SkillAssistantMessage = {
   role: 'user' | 'assistant' | 'system'
@@ -32,12 +32,12 @@ export async function skillAssistantChatStream(
     onChunk: (content: string) => void
   }
 ): Promise<void> {
-  const res = await fetch('/api/admin/skill-assistant/chat/stream', {
+  const res = await fetch('/api/admin/skill-assistant/chat/stream', authFetchInit({
     method: 'POST',
     headers: { ...authHeaders(), 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
     signal: payload.signal,
-  })
+  }))
 
   if (!res.ok) {
     throw new Error(await readErrorMessage(res))

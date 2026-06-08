@@ -18,16 +18,12 @@ export function OsintAuthProvider({ children }: { children: React.ReactNode }) {
   const refreshMe = useOsintAuthStore((s) => s.refreshMe)
 
   React.useEffect(() => {
-    const { ready: isReady, hydrate } = useOsintAuthStore.getState()
-    if (!isReady) void hydrate()
-  }, [])
-
-  React.useEffect(() => {
     const retry = () => {
-      const { token, user, lastFailure, refreshMe, ready } = useOsintAuthStore.getState()
-      if (!ready || !token) return
-      if (user && lastFailure !== 'network') return
-      void refreshMe()
+      const { user: currentUser, lastFailure, refreshMe: refresh, ready: isReady } =
+        useOsintAuthStore.getState()
+      // Only retry when we still believe the user is logged in but last API failed transiently.
+      if (!isReady || !currentUser || lastFailure !== 'network') return
+      void refresh()
     }
     const onOnline = () => retry()
     const onVisible = () => {

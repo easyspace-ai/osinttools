@@ -6,29 +6,21 @@ import {
   getMe,
   isAuthHttpError,
   loginRequest,
+  invalidateServerSession,
   logoutRequest,
   registerRequest,
-  syncAuthCookie,
-  authHeaders,
 } from './client'
 import { OSINT_AUTH_STORAGE_KEY } from './constants'
 import { migrateLegacyAuthStorage } from './migrate'
 import { createRememberAwareStorage } from './storage'
-import { maybeRenewAccessToken } from './session'
-import { isTokenExpired } from './token'
+import { recoverSessionFromCookie, scheduleRenewIfDue } from './session'
 import type { AuthFailureReason, CurrentUser } from './types'
 
-function classifyFailure(err: unknown, token: string | null) {
-  return classifyAuthFailure(err, token, isTokenExpired)
-}
-
 export interface OsintAuthStore {
-  token: string | null
   user: CurrentUser | null
   ready: boolean
   lastFailure: AuthFailureReason | null
 
-  setToken: (token: string | null) => void
   setUser: (user: CurrentUser | null) => void
 
   hydrate: () => Promise<void>
@@ -39,102 +31,116 @@ export interface OsintAuthStore {
   clearSession: (reason?: AuthFailureReason | null) => void
 }
 
-async function establishSession(
-  token: string,
+let hydrateInFlight: Promise<void> | null = null
+
+async function rejectInvalidSession(
+  set: (partial: Partial<OsintAuthStore>) => void,
+): Promise<void> {
+  await invalidateServerSession()
+  set({ user: null, ready: true, lastFailure: 'expired' })
+}
+
+async function establishUserFromCookie(
   set: (partial: Partial<OsintAuthStore>) => void,
 ): Promise<CurrentUser> {
-  const activeToken = await maybeRenewAccessToken(token)
-  set({ token: activeToken, lastFailure: null })
-  await syncAuthCookie(activeToken)
-  const me = await getMe(activeToken)
-  set({ user: me })
-  return me
+  try {
+    const me = await getMe()
+    set({ user: me, lastFailure: null })
+    scheduleRenewIfDue()
+    return me
+  } catch (err) {
+    if (isAuthHttpError(err) && err.status === 401) {
+      const recovered = await recoverSessionFromCookie()
+      if (recovered) {
+        set({ user: recovered, lastFailure: null })
+        scheduleRenewIfDue()
+        return recovered
+      }
+    }
+    throw err
+  }
 }
 
 export const useOsintAuthStore = create<OsintAuthStore>()(
   persist(
     (set, get) => ({
-      token: null,
       user: null,
       ready: false,
       lastFailure: null,
 
-      setToken: (token) => set({ token }),
       setUser: (user) => set({ user }),
 
       clearSession: (reason = null) => {
         lastMeValidatedAt = 0
-        set({ token: null, user: null, lastFailure: reason })
+        set({ user: null, lastFailure: reason })
       },
 
       hydrate: async () => {
-        migrateLegacyAuthStorage()
-        const { token } = get()
-        if (!token) {
-          set({ ready: true, user: null })
-          return
-        }
-        if (isTokenExpired(token)) {
-          set({ token: null, user: null, ready: true, lastFailure: 'expired' })
-          return
-        }
-        try {
-          const activeToken = await maybeRenewAccessToken(token)
-          if (activeToken !== token) set({ token: activeToken })
-          await syncAuthCookie(activeToken)
-          const me = await getMe(activeToken)
-          set({ user: me, ready: true, lastFailure: null })
-        } catch (err) {
-          if (isAuthHttpError(err) && err.status === 401) {
-            set({ token: null, user: null, ready: true, lastFailure: 'expired' })
-            return
-          }
-          const kind = classifyFailure(err, get().token)
-          if (kind !== 'expired' || !isTokenExpired(get().token)) {
+        if (hydrateInFlight) return hydrateInFlight
+
+        hydrateInFlight = (async () => {
+          migrateLegacyAuthStorage()
+          try {
+            await establishUserFromCookie(set)
+            set({ ready: true })
+          } catch (err) {
+            if (isAuthHttpError(err) && err.status === 401) {
+              await rejectInvalidSession(set)
+              return
+            }
             set({
               ready: true,
-              lastFailure: kind === 'expired' ? 'network' : kind,
+              lastFailure: classifyAuthFailure(err),
             })
-            return
           }
-          set({ token: null, user: null, ready: true, lastFailure: 'expired' })
+        })()
+
+        try {
+          await hydrateInFlight
+        } finally {
+          hydrateInFlight = null
         }
       },
 
       login: async (loginId, password) => {
-        const r = await loginRequest(loginId, password)
-        await establishSession(r.access_token, set)
+        await loginRequest(loginId, password)
+        await establishUserFromCookie(set)
         set({ ready: true })
       },
 
       register: async (username, contact, password) => {
         await registerRequest(username, contact, password)
-        const r = await loginRequest(username, password)
-        await establishSession(r.access_token, set)
+        await loginRequest(username, password)
+        await establishUserFromCookie(set)
         set({ ready: true })
       },
 
       logout: async () => {
         await logoutRequest()
-        set({ token: null, user: null, lastFailure: null })
+        set({ user: null, lastFailure: null })
       },
 
       refreshMe: async () => {
-        const { token } = get()
-        if (!token) {
-          set({ user: null })
-          return
-        }
+        const { user } = get()
+        if (!user) return
+
         try {
-          const me = await getMe(token)
+          const me = await getMe()
           set({ user: me, lastFailure: null })
+          scheduleRenewIfDue()
         } catch (err) {
-          const kind = classifyFailure(err, token)
-          if (kind !== 'expired' || !isTokenExpired(token)) {
-            set({ lastFailure: kind === 'expired' ? 'network' : kind })
+          if (isAuthHttpError(err) && err.status === 401) {
+            const recovered = await recoverSessionFromCookie()
+            if (recovered) {
+              set({ user: recovered, lastFailure: null })
+              scheduleRenewIfDue()
+              return
+            }
+            await invalidateServerSession()
+            set({ user: null, lastFailure: 'expired' })
             return
           }
-          set({ token: null, user: null, lastFailure: 'expired' })
+          set({ lastFailure: classifyAuthFailure(err) })
         }
       },
     }),
@@ -142,7 +148,6 @@ export const useOsintAuthStore = create<OsintAuthStore>()(
       name: OSINT_AUTH_STORAGE_KEY,
       storage: createJSONStorage(() => createRememberAwareStorage()),
       partialize: (state) => ({
-        token: state.token,
         user: state.user,
       }),
       onRehydrateStorage: () => (state) => {
@@ -152,67 +157,63 @@ export const useOsintAuthStore = create<OsintAuthStore>()(
   ),
 )
 
-/** Non-hook accessor for API layers & WebSocket. */
-export function getOsintAccessToken(): string | null {
-  return useOsintAuthStore.getState().token
-}
-
-export function getOsintAuthHeaders(): HeadersInit {
-  const token = getOsintAccessToken()
-  const headers: Record<string, string> = {}
-  // 过期 token 不放入 Authorization，让浏览器改走 HttpOnly Cookie（避免 401）
-  if (token && !isTokenExpired(token)) {
-    headers.Authorization = `Bearer ${token}`
-  }
-  return headers
-}
-
 let lastMeValidatedAt = 0
 const meValidationTTLMs = 90_000
 
-/** 续期并校验 token；失败时清会话并提示重新登录。 */
-export async function ensureValidAccessToken(): Promise<string> {
-  let token = getOsintAccessToken()
-  if (!token) {
+/** Validate HttpOnly cookie session before sensitive operations. */
+export async function ensureAuthenticatedSession(): Promise<void> {
+  const { user } = useOsintAuthStore.getState()
+  if (!user) {
     throw new AuthRequiredError('请先登录')
   }
-  token = await maybeRenewAccessToken(token)
-  if (isTokenExpired(token)) {
-    useOsintAuthStore.getState().clearSession('expired')
-    throw new AuthRequiredError('登录已过期，请重新登录')
-  }
-  useOsintAuthStore.getState().setToken(token)
-  await syncAuthCookie(token)
 
   const now = Date.now()
   if (now - lastMeValidatedAt < meValidationTTLMs) {
-    return token
+    return
   }
 
   try {
-    await getMe(token)
+    await getMe()
     lastMeValidatedAt = now
+    scheduleRenewIfDue()
   } catch (err) {
     if (isAuthHttpError(err) && err.status === 401) {
+      const recovered = await recoverSessionFromCookie()
+      if (recovered) {
+        useOsintAuthStore.getState().setUser(recovered)
+        lastMeValidatedAt = now
+        scheduleRenewIfDue()
+        return
+      }
+      await invalidateServerSession()
       useOsintAuthStore.getState().clearSession('expired')
       throw new AuthRequiredError('登录已失效，请重新登录')
     }
     throw err
   }
-  return token
+}
+
+/** @deprecated Use authFetchInit() — no Bearer headers with cookie-only auth. */
+export function getOsintAuthHeaders(): HeadersInit {
+  return {}
+}
+
+/** @deprecated Cookie-only auth — always returns null. */
+export function getOsintAccessToken(): string | null {
+  return null
 }
 
 export async function getAuthenticatedHeaders(): Promise<HeadersInit> {
-  const token = await ensureValidAccessToken()
-  return authHeaders(token)
+  await ensureAuthenticatedSession()
+  return {}
 }
 
 export async function fetchCurrentUser(): Promise<CurrentUser> {
-  const token = getOsintAccessToken()
-  if (!token) {
+  const { user } = useOsintAuthStore.getState()
+  if (!user) {
     const err = new Error('auth me failed: 401') as Error & { status?: number }
     err.status = 401
     throw err
   }
-  return getMe(token)
+  return getMe()
 }

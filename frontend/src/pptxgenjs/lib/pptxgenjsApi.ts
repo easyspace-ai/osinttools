@@ -1,15 +1,13 @@
-import { getOsintAccessToken } from '@/osint/auth'
+import { authFetchInit } from '@/osint/auth'
 
 const API_BASE = '/api/pptxgenjs'
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const token = getOsintAccessToken()
   const headers = new Headers(init?.headers)
-  if (token) headers.set('Authorization', `Bearer ${token}`)
   if (init?.body && !(init.body instanceof FormData) && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json')
   }
-  const res = await fetch(`${API_BASE}${path}`, { ...init, headers })
+  const res = await fetch(`${API_BASE}${path}`, authFetchInit({ ...init, headers }))
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
     throw new Error(err.detail || res.statusText || 'Request failed')
@@ -56,14 +54,12 @@ async function streamPipelineSSE(
   init: RequestInit,
   onEvent: (ev: PipelineEvent) => void,
 ): Promise<PipelineResult | undefined> {
-  const token = getOsintAccessToken()
   const headers = new Headers(init.headers)
-  if (token) headers.set('Authorization', `Bearer ${token}`)
   if (init.body && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json')
   }
 
-  const res = await fetch(`${API_BASE}${path}`, { ...init, headers })
+  const res = await fetch(`${API_BASE}${path}`, authFetchInit({ ...init, headers }))
   if (!res.ok || !res.body) {
     const err = await res.json().catch(() => ({}))
     throw new Error(err.detail || 'Pipeline failed')

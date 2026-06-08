@@ -3,7 +3,6 @@ import { createPortal } from 'react-dom'
 import { Download, FileText, Loader2, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { getOsintAccessToken } from '@/osint/auth'
 import { API_ENDPOINTS } from '@/osint/config/api'
 import ArtifactPreviewPanel from '@/osint/components/ArtifactPreviewPanel'
 import { ToastProvider } from '@/osint/components/ui/Feedback'
@@ -61,9 +60,7 @@ export function DashboardArtifactsPanel({
 
   const handleDownload = useCallback((id: string, name: string, e: React.MouseEvent) => {
     e.stopPropagation()
-    const token = getOsintAccessToken()
     const url = new URL(API_ENDPOINTS.projectArtifactDownload(id), window.location.origin)
-    if (token) url.searchParams.set('token', token)
     const a = document.createElement('a')
     a.href = url.toString()
     a.download = name || 'download'

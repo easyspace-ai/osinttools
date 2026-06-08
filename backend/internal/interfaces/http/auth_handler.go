@@ -57,7 +57,6 @@ func (h *AuthHandler) RegisterRoutes(r *gin.RouterGroup) {
 	authGroup.GET("/me", h.me)
 	authGroup.PATCH("/me", h.updateMe)
 	authGroup.POST("/change-password", h.changePassword)
-	authGroup.POST("/sync-cookie", h.syncCookie)
 	// renew 单独挂宽限中间件，避免临近/刚过期的 token 无法续期
 	r.POST("/renew", RenewAuthMiddleware(h.svc), h.renew)
 }
@@ -202,12 +201,10 @@ func (h *AuthHandler) login(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"detail": "login failed"})
 		return
 	}
-	// Cookie 须在 JSON 响应之前写入，否则浏览器收不到（River UI /jobs 依赖此 Cookie）
 	setAuthCookie(c, result.AccessToken, result.ExpiresIn)
 	c.JSON(http.StatusOK, gin.H{
-		"access_token": result.AccessToken,
-		"token_type":   result.TokenType,
-		"expires_in":   result.ExpiresIn,
+		"token_type": "bearer",
+		"expires_in": result.ExpiresIn,
 	})
 }
 
@@ -225,35 +222,12 @@ func (h *AuthHandler) renew(c *gin.Context) {
 	}
 	setAuthCookie(c, result.AccessToken, result.ExpiresIn)
 	c.JSON(http.StatusOK, gin.H{
-		"access_token": result.AccessToken,
-		"token_type":   result.TokenType,
-		"expires_in":   result.ExpiresIn,
+		"token_type": "bearer",
+		"expires_in": result.ExpiresIn,
 	})
 }
 
-// syncCookie 将当前 Bearer token 同步为 HttpOnly Cookie，供 River UI（/jobs）等同源页面使用。
-func (h *AuthHandler) syncCookie(c *gin.Context) {
-	if _, ok := GetCurrentUser(c); !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"detail": "Not authenticated"})
-		return
-	}
-	authHeader := c.GetHeader("Authorization")
-	token := ""
-	if parts := strings.SplitN(authHeader, " ", 2); len(parts) == 2 && strings.EqualFold(parts[0], "Bearer") {
-		token = parts[1]
-	}
-	if token == "" {
-		token = c.Query("token")
-	}
-	if token == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"detail": "missing token"})
-		return
-	}
-	setAuthCookie(c, token, 86400*365)
-	c.JSON(http.StatusOK, gin.H{"status": "ok"})
-}
-
-// logout 清除会话 Cookie（River UI /jobs 等），无需有效 token 也可调用。
+// logout 清除会话 Cookie，无需有效 token 也可调用。
 func (h *AuthHandler) logout(c *gin.Context) {
 	clearAuthCookie(c)
 	c.JSON(http.StatusOK, gin.H{"status": "logged_out"})

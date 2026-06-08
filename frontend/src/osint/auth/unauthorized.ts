@@ -1,7 +1,8 @@
+import { invalidateServerSession } from './client'
 import { useOsintAuthStore } from './store'
-import { isTokenExpired } from './token'
 
 let redirectingToLogin = false
+let refreshAfter401Scheduled = false
 
 export type UnauthorizedHandlerOptions = {
   /** Skip redirect (e.g. already on login page). */
@@ -10,8 +11,8 @@ export type UnauthorizedHandlerOptions = {
 }
 
 /**
- * Centralized 401 handling: only clear session when the JWT is actually expired.
- * Transient 401 (VPN/proxy/gateway) must not log the user out.
+ * Centralized 401 handling for cookie-only sessions.
+ * If user is still in memory, treat as transient failure (network/gateway).
  */
 export function handleUnauthorizedResponse(
   status: number,
@@ -19,13 +20,24 @@ export function handleUnauthorizedResponse(
 ): void {
   if (status !== 401) return
 
-  const token = useOsintAuthStore.getState().token
-  if (token && !isTokenExpired(token)) {
+  const { user } = useOsintAuthStore.getState()
+  if (user) {
     useOsintAuthStore.setState({ lastFailure: 'network' })
+    if (!refreshAfter401Scheduled) {
+      refreshAfter401Scheduled = true
+      void useOsintAuthStore
+        .getState()
+        .refreshMe()
+        .finally(() => {
+          refreshAfter401Scheduled = false
+        })
+    }
     return
   }
 
-  useOsintAuthStore.getState().clearSession('expired')
+  void invalidateServerSession().finally(() => {
+    useOsintAuthStore.getState().clearSession('expired')
+  })
 
   if (options.skipRedirect) return
   if (typeof window === 'undefined' || redirectingToLogin) return
@@ -46,6 +58,7 @@ export function resetUnauthorizedRedirectGuard(): void {
   redirectingToLogin = false
 }
 
+/** @deprecated Cookie-only auth — use useOsintAuthStore.getState().user instead. */
 export function getAccessToken(): string | null {
-  return useOsintAuthStore.getState().token
+  return null
 }

@@ -10,10 +10,9 @@ import Register from '@/osint/pages/Auth/Register'
 import { ToastProvider } from '@/osint/components/ui/Feedback'
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const token = useOsintAuthStore((state) => state.token)
   const user = useOsintAuthStore((state) => state.user)
   const ready = useOsintAuthStore((state) => state.ready)
-  const clearSession = useOsintAuthStore((state) => state.clearSession)
+  const lastFailure = useOsintAuthStore((state) => state.lastFailure)
 
   if (!ready) {
     return (
@@ -23,9 +22,13 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     )
   }
 
-  if (!token || !user) {
-    if (token || user) {
-      clearSession('invalid')
+  if (!user) {
+    if (lastFailure === 'network' || lastFailure === 'unknown') {
+      return (
+        <div className="flex min-h-screen items-center justify-center text-sm text-slate-500">
+          网络异常，正在恢复会话…
+        </div>
+      )
     }
     return <Navigate to="/login" replace />
   }

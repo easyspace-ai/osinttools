@@ -1,5 +1,5 @@
 import { API_CONFIG } from '@/osint/config/api'
-import { getOsintAccessToken } from '@/osint/auth'
+import { authFetchInit } from '@/osint/auth'
 import type { Message as TMessage } from '@/osint/types'
 
 interface FetchHistoryOptions {
@@ -156,10 +156,6 @@ export function dedupeMessagesByCanonicalKey(messages: TMessage[]): TMessage[] {
   )
 }
 
-function getAuthToken(): string | null {
-  return getOsintAccessToken()
-}
-
 /**
  * 将上游消息格式转换为本地消息格式
  */
@@ -236,11 +232,6 @@ export async function fetchHistory(
 ): Promise<FetchHistoryResult> {
   const { limit = 1000, offset = 0, since } = options
 
-  const token = getAuthToken()
-  if (!token) {
-    throw new Error('Authentication required')
-  }
-
   // 构建查询参数
   const params = new URLSearchParams()
   params.set('limit', String(Math.min(limit, 1000)))
@@ -252,13 +243,12 @@ export async function fetchHistory(
   // 调用后端独立 session history 接口（无需 project_id）
   const url = `${API_CONFIG.baseUrl}/sessions/${encodeURIComponent(sessionId)}/history?${params.toString()}`
 
-  const response = await fetch(url, {
+  const response = await fetch(url, authFetchInit({
     method: 'GET',
     headers: {
-      Authorization: `Bearer ${token}`,
       Accept: 'application/json',
     },
-  })
+  }))
 
   if (!response.ok) {
     if (response.status === 404) {

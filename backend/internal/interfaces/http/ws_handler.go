@@ -57,7 +57,8 @@ func NewWSHandler(
 }
 
 // HandleChat 处理前端 WebSocket 连接并代理到上游
-// GET /api/ws/chat?session_id=xxx&project_id=xxx&token=xxx
+// GET /api/ws/chat?session_id=xxx&project_id=xxx
+// 认证：同源 HttpOnly Cookie（兼容 query token 供过渡期使用）
 func (h *WSHandler) HandleChat(c *gin.Context) {
 	sessionID := c.Query("session_id")
 	if sessionID == "" {
@@ -65,17 +66,9 @@ func (h *WSHandler) HandleChat(c *gin.Context) {
 		return
 	}
 
-	// JWT 认证（从 query 参数获取 token）
-	tokenStr := c.Query("token")
-	if tokenStr == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "token is required"})
-		return
-	}
-
-	// 验证 token
-	u, err := h.validateToken(tokenStr)
+	u, err := h.authenticateWS(c)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
 		return
 	}
 
@@ -634,6 +627,22 @@ func (h *WSHandler) persistTodos(projectID, sessionID string, todos any) {
 			slog.Error("todo_create_failed", slog.String("todo_id", todoID), slog.Any("err", err))
 		}
 	}
+}
+
+func (h *WSHandler) authenticateWS(c *gin.Context) (*user.User, error) {
+	candidates := collectAuthTokenCandidates(c)
+	if len(candidates) == 0 {
+		return nil, jwt.ErrTokenMalformed
+	}
+	var lastErr error
+	for _, tokenStr := range candidates {
+		u, err := h.validateToken(tokenStr)
+		if err == nil {
+			return u, nil
+		}
+		lastErr = err
+	}
+	return nil, lastErr
 }
 
 // validateToken 验证 JWT token 并返回用户

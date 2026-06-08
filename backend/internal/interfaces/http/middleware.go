@@ -79,7 +79,7 @@ func authMiddlewareWithLeeway(authSvc *auth.Service, leeway time.Duration) gin.H
 		candidates := collectAuthTokenCandidates(c)
 		if len(candidates) == 0 {
 			log.Printf("[auth] missing credentials: %s %s", c.Request.Method, c.Request.URL.Path)
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"detail": "Missing Authorization header"})
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"detail": "Missing credentials"})
 			return
 		}
 		var lastErr error

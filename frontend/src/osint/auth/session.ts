@@ -1,24 +1,24 @@
-import { renewTokenRequest, syncAuthCookie } from './client'
-import { getTokenExpiryMs, isTokenExpired } from './token'
+import { getMe, renewSessionRequest } from './client'
 
-/** Renew access token when within 30 days of JWT exp (silent extension to full TTL). */
-const RENEW_IF_EXPIRES_WITHIN_MS = 30 * 24 * 60 * 60 * 1000
+/** Try silent cookie renewal at most once per day (only after a successful /me). */
+const RENEW_INTERVAL_MS = 24 * 60 * 60 * 1000
+let lastRenewAttemptAt = 0
 
-export function tokenNeedsRenewal(token: string | null | undefined): boolean {
-  const expMs = getTokenExpiryMs(token)
-  if (expMs == null) return false
-  return expMs - Date.now() <= RENEW_IF_EXPIRES_WITHIN_MS
+export function scheduleRenewIfDue(): void {
+  const now = Date.now()
+  if (now - lastRenewAttemptAt < RENEW_INTERVAL_MS) return
+  lastRenewAttemptAt = now
+  void renewSessionRequest().catch(() => {
+    /* non-fatal background renew */
+  })
 }
 
-export async function maybeRenewAccessToken(token: string): Promise<string> {
-  if (!token) return token
-  const shouldTryRenew = tokenNeedsRenewal(token) || isTokenExpired(token)
-  if (!shouldTryRenew) return token
+/** After /me returns 401, attempt renew (30-day server leeway) then /me once more. */
+export async function recoverSessionFromCookie(): Promise<CurrentUser | null> {
   try {
-    const renewed = await renewTokenRequest(token)
-    await syncAuthCookie(renewed)
-    return renewed
+    await renewSessionRequest()
+    return await getMe()
   } catch {
-    return token
+    return null
   }
 }

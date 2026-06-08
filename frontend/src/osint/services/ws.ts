@@ -1,5 +1,5 @@
 // WebSocket 服务 - 连接后端 WS 代理
-import { getOsintAccessToken } from '@/osint/auth'
+import { useOsintAuthStore } from '@/osint/auth'
 
 // WS 连接配置：统一使用 /api/ws/chat（与后端路由对齐）
 const WS_BASE_URL = (() => {
@@ -83,8 +83,7 @@ class SessionWebSocket {
     // 清理任何现有的超时定时器
     this.clearConnectionTimeout();
 
-    const token = getOsintAccessToken();
-    if (!token) {
+    if (!useOsintAuthStore.getState().user) {
       this.callbacks.onError(new Error('未登录'), true);
       return;
     }
@@ -92,8 +91,8 @@ class SessionWebSocket {
     this.isConnecting = true;
     this.intentionalClose = false;
 
-    // 统一使用后端 /api/ws/chat 路由（不再区分 osint / polymarket 路径）
-    const url = `${WS_BASE_URL}/api/ws/chat?session_id=${encodeURIComponent(this.sessionId)}&token=${encodeURIComponent(token)}`
+    // 同源 WebSocket 自动携带 HttpOnly 会话 Cookie
+    const url = `${WS_BASE_URL}/api/ws/chat?session_id=${encodeURIComponent(this.sessionId)}`
     console.log(`[WebSocket] Connecting to session ${this.sessionId} (attempt ${this.reconnectAttempts + 1}/${RECONFIG.maxAttempts})`);
 
     let socket: WebSocket;

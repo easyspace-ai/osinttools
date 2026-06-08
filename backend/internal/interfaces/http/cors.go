@@ -37,11 +37,15 @@ func CORSMiddleware(cfg *config.Config) gin.HandlerFunc {
 		})
 	}
 	if len(origins) == 0 {
+		// Reflect request Origin so HttpOnly cookies work with credentials: 'include' in dev.
 		return cors.New(cors.Config{
-			AllowAllOrigins:  true,
+			AllowOriginFunc: func(origin string) bool {
+				return origin != ""
+			},
 			AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"},
-			AllowHeaders:     []string{"*"},
-			AllowCredentials: false,
+			AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
+			ExposeHeaders:    []string{"Content-Length", "Set-Cookie"},
+			AllowCredentials: true,
 		})
 	}
 	return cors.New(cors.Config{

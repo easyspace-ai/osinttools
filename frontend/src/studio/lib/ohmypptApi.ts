@@ -1,4 +1,4 @@
-import { getOsintAccessToken } from '@/osint/auth'
+import { authFetchInit } from '@/osint/auth'
 import type {
   GenerateChunkEvent,
   OhMyPptMessage,
@@ -10,13 +10,11 @@ import type {
 const API_BASE = '/api/studio/ohmyppt'
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const token = getOsintAccessToken()
   const headers = new Headers(init?.headers)
-  if (token) headers.set('Authorization', `Bearer ${token}`)
   if (init?.body && !(init.body instanceof FormData) && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json')
   }
-  const res = await fetch(`${API_BASE}${path}`, { ...init, headers })
+  const res = await fetch(`${API_BASE}${path}`, authFetchInit({ ...init, headers }))
   const text = await res.text()
   const contentType = res.headers.get('content-type') || ''
   const looksLikeHtml = text.trimStart().toLowerCase().startsWith('<!doctype') || text.trimStart().startsWith('<html')
@@ -68,12 +66,10 @@ async function consumeGenerateSSE(
   init: RequestInit,
   onChunk: (ev: GenerateChunkEvent) => void,
 ): Promise<void> {
-  const token = getOsintAccessToken()
   const headers = new Headers(init.headers)
-  if (token) headers.set('Authorization', `Bearer ${token}`)
   if (!headers.has('Accept')) headers.set('Accept', 'text/event-stream')
 
-  const res = await fetch(url, { ...init, headers })
+  const res = await fetch(url, authFetchInit({ ...init, headers }))
   if (!res.ok || !res.body) {
     const text = await res.text().catch(() => '')
     const looksLikeHtml = text.trimStart().toLowerCase().startsWith('<!doctype')
@@ -166,23 +162,17 @@ export const ohmypptApi = {
     consumeGenerateSSE(`${API_BASE}/sessions/${sessionId}/generate/stream`, { method: 'GET' }, onChunk),
 
   getPageHtml: async (sessionId: string, pageId: string): Promise<string> => {
-    const token = getOsintAccessToken()
-    const headers = new Headers()
-    if (token) headers.set('Authorization', `Bearer ${token}`)
-    const res = await fetch(`${API_BASE}/sessions/${sessionId}/pages/${pageId}`, { headers })
+    const res = await fetch(`${API_BASE}/sessions/${sessionId}/pages/${pageId}`, authFetchInit())
     if (!res.ok) throw new Error('Page not found')
     return res.text()
   },
 
   exportZip: async (sessionId: string, filename = 'deck.zip') => {
-    const token = getOsintAccessToken()
-    const headers = new Headers({ 'Content-Type': 'application/json' })
-    if (token) headers.set('Authorization', `Bearer ${token}`)
-    const res = await fetch(`${API_BASE}/sessions/${sessionId}/export`, {
+    const res = await fetch(`${API_BASE}/sessions/${sessionId}/export`, authFetchInit({
       method: 'POST',
-      headers,
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ format: 'zip' }),
-    })
+    }))
     if (!res.ok) {
       const err = await res.json().catch(() => ({}))
       throw new Error(
@@ -218,18 +208,15 @@ export const ohmypptApi = {
     sessionId: string,
     opts?: { image_only?: boolean; embed_fonts?: 'auto' | 'always' | 'never' },
   ): Promise<Blob> => {
-    const token = getOsintAccessToken()
-    const headers = new Headers({ 'Content-Type': 'application/json' })
-    if (token) headers.set('Authorization', `Bearer ${token}`)
-    const res = await fetch(`${API_BASE}/sessions/${sessionId}/export`, {
+    const res = await fetch(`${API_BASE}/sessions/${sessionId}/export`, authFetchInit({
       method: 'POST',
-      headers,
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         format: 'pptx',
         image_only: opts?.image_only ?? false,
         embed_fonts: opts?.embed_fonts,
       }),
-    })
+    }))
     if (!res.ok) {
       const err = await res.json().catch(() => ({}))
       throw new Error(err.detail || err.error || 'Export failed')

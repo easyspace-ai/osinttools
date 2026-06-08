@@ -1,10 +1,21 @@
 import { AUTH_API_PREFIX } from './constants'
-import type { AuthConfig, AuthLoginResponse, CurrentUser } from './types'
+import type { AuthConfig, CurrentUser } from './types'
 
-export function authHeaders(token: string | null): HeadersInit {
-  const headers: Record<string, string> = {}
-  if (token) headers.Authorization = `Bearer ${token}`
-  return headers
+/** All authenticated API calls must send the HttpOnly session cookie. */
+export function authFetchInit(init: RequestInit = {}): RequestInit {
+  return {
+    ...init,
+    credentials: 'include',
+  }
+}
+
+export async function authedFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  return fetch(input, authFetchInit(init))
+}
+
+/** @deprecated Bearer headers are unused — session is cookie-only. */
+export function authHeaders(): HeadersInit {
+  return {}
 }
 
 export async function fetchAuthConfig(): Promise<AuthConfig> {
@@ -13,25 +24,23 @@ export async function fetchAuthConfig(): Promise<AuthConfig> {
   return res.json() as Promise<AuthConfig>
 }
 
-export async function loginRequest(login: string, password: string): Promise<AuthLoginResponse> {
-  const res = await fetch(`${AUTH_API_PREFIX}/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
-    body: JSON.stringify({
-      username: login.trim(),
-      password,
-      remember_me: true,
+export async function loginRequest(login: string, password: string): Promise<void> {
+  const res = await fetch(
+    `${AUTH_API_PREFIX}/login`,
+    authFetchInit({
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: login.trim(),
+        password,
+        remember_me: true,
+      }),
     }),
-  })
-  const data = (await res.json().catch(() => ({}))) as { detail?: string } & Partial<AuthLoginResponse>
+  )
+  const data = (await res.json().catch(() => ({}))) as { detail?: string }
   if (!res.ok) {
     throw new Error(data.detail || `登录失败 (${res.status})`)
   }
-  if (!data.access_token) {
-    throw new Error('登录响应无效')
-  }
-  return data as AuthLoginResponse
 }
 
 export async function registerRequest(
@@ -39,15 +48,18 @@ export async function registerRequest(
   email: string,
   password: string,
 ): Promise<CurrentUser> {
-  const res = await fetch(`${AUTH_API_PREFIX}/register`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      username: username.trim(),
-      email: email.trim(),
-      password,
+  const res = await fetch(
+    `${AUTH_API_PREFIX}/register`,
+    authFetchInit({
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: username.trim(),
+        email: email.trim(),
+        password,
+      }),
     }),
-  })
+  )
   let raw = ''
   try {
     raw = await res.clone().text()
@@ -64,8 +76,8 @@ export async function registerRequest(
   return data as CurrentUser
 }
 
-export async function getMe(token: string): Promise<CurrentUser> {
-  const res = await fetch(`${AUTH_API_PREFIX}/me`, { headers: authHeaders(token) })
+export async function getMe(): Promise<CurrentUser> {
+  const res = await authedFetch(`${AUTH_API_PREFIX}/me`)
   if (!res.ok) {
     const err = new Error(`auth me failed: ${res.status}`) as Error & { status?: number }
     err.status = res.status
@@ -74,29 +86,11 @@ export async function getMe(token: string): Promise<CurrentUser> {
   return res.json() as Promise<CurrentUser>
 }
 
-export async function renewTokenRequest(token: string): Promise<string> {
-  const res = await fetch(`${AUTH_API_PREFIX}/renew`, {
-    method: 'POST',
-    headers: authHeaders(token),
-    credentials: 'include',
-  })
-  const data = (await res.json().catch(() => ({}))) as { detail?: string; access_token?: string }
-  if (!res.ok || !data.access_token) {
-    const err = new Error(data.detail || `renew failed: ${res.status}`) as Error & { status?: number }
-    err.status = res.status
-    throw err
-  }
-  return data.access_token
-}
-
-export async function syncAuthCookie(token: string): Promise<void> {
-  const res = await fetch(`${AUTH_API_PREFIX}/sync-cookie`, {
-    method: 'POST',
-    headers: authHeaders(token),
-    credentials: 'include',
-  })
+export async function renewSessionRequest(): Promise<void> {
+  const res = await authedFetch(`${AUTH_API_PREFIX}/renew`, { method: 'POST' })
+  const data = (await res.json().catch(() => ({}))) as { detail?: string }
   if (!res.ok) {
-    const err = new Error(`sync cookie failed: ${res.status}`) as Error & { status?: number }
+    const err = new Error(data.detail || `renew failed: ${res.status}`) as Error & { status?: number }
     err.status = res.status
     throw err
   }
@@ -104,23 +98,21 @@ export async function syncAuthCookie(token: string): Promise<void> {
 
 export async function logoutRequest(): Promise<void> {
   try {
-    await fetch(`${AUTH_API_PREFIX}/logout`, {
-      method: 'POST',
-      credentials: 'include',
-    })
+    await authedFetch(`${AUTH_API_PREFIX}/logout`, { method: 'POST' })
   } catch {
     /* ignore */
   }
 }
 
-export async function changePassword(
-  token: string,
-  oldPassword: string,
-  newPassword: string,
-): Promise<void> {
-  const res = await fetch(`${AUTH_API_PREFIX}/change-password`, {
+/** Clear HttpOnly cookie on the server (best-effort). */
+export async function invalidateServerSession(): Promise<void> {
+  await logoutRequest()
+}
+
+export async function changePassword(oldPassword: string, newPassword: string): Promise<void> {
+  const res = await authedFetch(`${AUTH_API_PREFIX}/change-password`, {
     method: 'POST',
-    headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ old_password: oldPassword, new_password: newPassword }),
   })
   if (!res.ok) {
@@ -161,14 +153,9 @@ export function isAuthHttpError(err: unknown): err is Error & { status: number }
 
 export function classifyAuthFailure(
   err: unknown,
-  token?: string | null,
-  isExpired?: (t: string | null | undefined) => boolean,
 ): 'expired' | 'invalid' | 'network' | 'unknown' {
   if (isAuthHttpError(err)) {
-    if (err.status === 401) {
-      if (token && isExpired && !isExpired(token)) return 'network'
-      return 'expired'
-    }
+    if (err.status === 401) return 'expired'
     return 'invalid'
   }
   if (err instanceof TypeError) return 'network'

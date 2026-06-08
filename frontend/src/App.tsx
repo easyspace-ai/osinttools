@@ -27,7 +27,7 @@ import { PptxgenjsRouteShell } from "./features/pptxgenjs/PptxgenjsRouteShell";
 import { SlideglanceRouteShell } from "./features/slideglance/SlideglanceRouteShell";
 import { OsintSessionRouteShell } from "./features/osint/OsintSessionRouteShell";
 import { useAuth } from "./contexts/AuthContext";
-import { getOsintAccessToken, isTokenExpired } from "@/osint/auth";
+import { useOsintAuthStore } from "@/osint/auth";
 import { fetchAuthConfig } from "./lib/authApi";
 import { DEFAULT_AUTH_HOME } from "./lib/defaultRoutes";
 import { RequireNavPermission } from "./components/auth/RequireNavPermission";
@@ -98,9 +98,8 @@ function GuestOnly({ children }: { children: React.ReactNode }) {
 /** 未登录不得进入工作台 */
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { user, ready } = useAuth();
+  const lastFailure = useOsintAuthStore((state) => state.lastFailure);
   const location = useLocation();
-  const token = getOsintAccessToken();
-  const hasValidToken = Boolean(token && !isTokenExpired(token));
 
   if (!ready) {
     return (
@@ -109,15 +108,15 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
       </div>
     );
   }
-  if (!hasValidToken) {
-    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
-  }
   if (!user) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-slate-50 dark:bg-slate-950 text-slate-500 text-sm">
-        网络异常，正在恢复会话…
-      </div>
-    );
+    if (lastFailure === "network" || lastFailure === "unknown") {
+      return (
+        <div className="flex h-screen items-center justify-center bg-slate-50 dark:bg-slate-950 text-slate-500 text-sm">
+          网络异常，正在恢复会话…
+        </div>
+      );
+    }
+    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   }
   return <>{children}</>;
 }

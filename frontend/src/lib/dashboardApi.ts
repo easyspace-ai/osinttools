@@ -1,4 +1,4 @@
-import { authHeaders } from '@/lib/authApi'
+import { authFetchInit, authHeaders } from '@/lib/authApi'
 
 const DASHBOARD_V1 = '/api/dashboard'
 
@@ -25,7 +25,7 @@ export interface StreamGroup {
 }
 
 export async function fetchStreamGroups(): Promise<StreamGroup[]> {
-  const response = await fetch(`${DASHBOARD_V1}/stream-groups`, { headers: authHeaders() })
+  const response = await fetch(`${DASHBOARD_V1}/stream-groups`, authFetchInit({ headers: authHeaders() }))
   if (!response.ok) {
     const err = await response.json().catch(() => ({}))
     const body = err as { error?: string; detail?: string }
@@ -61,10 +61,10 @@ export interface ScoredContent {
 
 /** 从上游拉取最新一页并写入本地 DB，再刷新页面数据 */
 export async function syncDashboardStream(): Promise<{ status: string; mode?: string }> {
-  const response = await fetch(`${DASHBOARD_V1}/sync`, {
+  const response = await fetch(`${DASHBOARD_V1}/sync`, authFetchInit({
     method: 'POST',
     headers: authHeaders(),
-  })
+  }))
   if (!response.ok) {
     const err = await response.json().catch(() => ({}))
     throw new Error((err as { error?: string }).error || 'Failed to sync dashboard stream')
@@ -81,7 +81,7 @@ export async function fetchDashboardItems(
   params.set('type', type)
   params.set('offset', String(offset))
   params.set('limit', String(limit))
-  const response = await fetch(`${DASHBOARD_V1}/items?${params}`, { headers: authHeaders() })
+  const response = await fetch(`${DASHBOARD_V1}/items?${params}`, authFetchInit({ headers: authHeaders() }))
   if (!response.ok) {
     const err = await response.json().catch(() => ({}))
     throw new Error((err as { error?: string }).error || 'Failed to fetch dashboard items')
@@ -102,7 +102,7 @@ export async function searchDashboardItems(
   }
   params.set('offset', String(offset))
   params.set('limit', String(limit))
-  const response = await fetch(`${DASHBOARD_V1}/items/search?${params}`, { headers: authHeaders() })
+  const response = await fetch(`${DASHBOARD_V1}/items/search?${params}`, authFetchInit({ headers: authHeaders() }))
   if (!response.ok) {
     const err = await response.json().catch(() => ({}))
     throw new Error((err as { error?: string }).error || 'Failed to search dashboard items')
@@ -129,10 +129,10 @@ export async function backfillDashboardItems(
   if (beforeRemoteId != null && beforeRemoteId > 0) {
     params.set('beforeRemoteId', String(beforeRemoteId))
   }
-  const response = await fetch(`${DASHBOARD_V1}/items/backfill?${params}`, {
+  const response = await fetch(`${DASHBOARD_V1}/items/backfill?${params}`, authFetchInit({
     method: 'POST',
     headers: authHeaders(),
-  })
+  }))
   if (!response.ok) {
     const err = await response.json().catch(() => ({}))
     throw new Error((err as { error?: string }).error || 'Failed to backfill dashboard items')
@@ -141,7 +141,7 @@ export async function backfillDashboardItems(
 }
 
 export async function fetchTopics(): Promise<TopicItem[]> {
-  const response = await fetch(`${DASHBOARD_V1}/topics`, { headers: authHeaders() })
+  const response = await fetch(`${DASHBOARD_V1}/topics`, authFetchInit({ headers: authHeaders() }))
   if (!response.ok) {
     throw new Error('Failed to fetch topics')
   }
@@ -149,11 +149,11 @@ export async function fetchTopics(): Promise<TopicItem[]> {
 }
 
 export async function createTopic(data: CreateTopicRequest): Promise<TopicItem> {
-  const response = await fetch(`${DASHBOARD_V1}/topics`, {
+  const response = await fetch(`${DASHBOARD_V1}/topics`, authFetchInit({
     method: 'POST',
     headers: { ...authHeaders(), 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
-  })
+  }))
   if (!response.ok) {
     throw new Error('Failed to create topic')
   }
@@ -161,17 +161,17 @@ export async function createTopic(data: CreateTopicRequest): Promise<TopicItem> 
 }
 
 export async function deleteTopic(id: number): Promise<void> {
-  const response = await fetch(`${DASHBOARD_V1}/topics/${id}`, {
+  const response = await fetch(`${DASHBOARD_V1}/topics/${id}`, authFetchInit({
     method: 'DELETE',
     headers: authHeaders(),
-  })
+  }))
   if (!response.ok) {
     throw new Error('Failed to delete topic')
   }
 }
 
 export async function fetchScoredContent(): Promise<ScoredContent[]> {
-  const response = await fetch(`${DASHBOARD_V1}/scored-content`, { headers: authHeaders() })
+  const response = await fetch(`${DASHBOARD_V1}/scored-content`, authFetchInit({ headers: authHeaders() }))
   if (!response.ok) {
     throw new Error('Failed to fetch scored content')
   }
@@ -179,10 +179,10 @@ export async function fetchScoredContent(): Promise<ScoredContent[]> {
 }
 
 export async function triggerAggregator(): Promise<{ status: string; message: string }> {
-  const response = await fetch(`${DASHBOARD_V1}/aggregator/trigger`, {
+  const response = await fetch(`${DASHBOARD_V1}/aggregator/trigger`, authFetchInit({
     method: 'POST',
     headers: authHeaders(),
-  })
+  }))
   if (!response.ok) {
     const err = await response.json().catch(() => ({}))
     throw new Error((err as { error?: string }).error || 'Failed to trigger aggregator')
@@ -261,7 +261,7 @@ export interface DashboardConfig {
 }
 
 export async function fetchDashboardConfig(): Promise<DashboardConfig> {
-  const response = await fetch(`${DASHBOARD_V1}/config`, { headers: authHeaders() })
+  const response = await fetch(`${DASHBOARD_V1}/config`, authFetchInit({ headers: authHeaders() }))
   if (!response.ok) {
     return { sessionId: '' }
   }
@@ -270,7 +270,7 @@ export async function fetchDashboardConfig(): Promise<DashboardConfig> {
 
 export async function fetchWordCloud(refresh = false): Promise<WordCloudResponse> {
   const params = refresh ? '?refresh=1' : ''
-  const response = await fetch(`${DASHBOARD_V1}/wordcloud${params}`, { headers: authHeaders() })
+  const response = await fetch(`${DASHBOARD_V1}/wordcloud${params}`, authFetchInit({ headers: authHeaders() }))
   if (!response.ok) {
     const err = await response.json().catch(() => ({}))
     throw new Error((err as { error?: string }).error || 'Failed to fetch word cloud')
@@ -280,7 +280,7 @@ export async function fetchWordCloud(refresh = false): Promise<WordCloudResponse
 
 export async function fetchDashboardArtifacts(refresh = false): Promise<DashboardArtifact[]> {
   const params = refresh ? '?refresh=1' : ''
-  const response = await fetch(`${DASHBOARD_V1}/artifacts${params}`, { headers: authHeaders() })
+  const response = await fetch(`${DASHBOARD_V1}/artifacts${params}`, authFetchInit({ headers: authHeaders() }))
   if (!response.ok) {
     const err = await response.json().catch(() => ({}))
     throw new Error((err as { error?: string }).error || 'Failed to fetch artifacts')
@@ -293,10 +293,10 @@ export async function syncDashboardArtifacts(): Promise<{
   count: number
   artifacts: DashboardArtifact[]
 }> {
-  const response = await fetch(`${DASHBOARD_V1}/artifacts/sync`, {
+  const response = await fetch(`${DASHBOARD_V1}/artifacts/sync`, authFetchInit({
     method: 'POST',
     headers: authHeaders(),
-  })
+  }))
   if (!response.ok) {
     const err = await response.json().catch(() => ({}))
     throw new Error((err as { error?: string }).error || 'Failed to sync artifacts')
@@ -305,7 +305,7 @@ export async function syncDashboardArtifacts(): Promise<{
 }
 
 export async function fetchAggregatorStatus(): Promise<AggregatorStatus> {
-  const response = await fetch(`${DASHBOARD_V1}/aggregator/status`, { headers: authHeaders() })
+  const response = await fetch(`${DASHBOARD_V1}/aggregator/status`, authFetchInit({ headers: authHeaders() }))
   if (!response.ok) {
     const err = await response.json().catch(() => ({}))
     throw new Error((err as { error?: string }).error || 'Failed to fetch aggregator status')

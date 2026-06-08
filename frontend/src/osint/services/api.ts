@@ -1,9 +1,5 @@
 import { API_CONFIG, API_ENDPOINTS } from '@/osint/config/api'
-import { getOsintAccessToken, handleUnauthorizedResponse } from '@/osint/auth'
-
-function getAuthToken(): string | null {
-  return getOsintAccessToken()
-}
+import { authFetchInit, handleUnauthorizedResponse } from '@/osint/auth'
 
 // 通用请求方法
 async function request<T>(
@@ -13,21 +9,18 @@ async function request<T>(
   const hasQuery = endpoint.includes('?') ? '&' : '?'
   const url = `${API_CONFIG.baseUrl}${endpoint}${hasQuery}t=${Date.now()}`
 
-  const token = getAuthToken()
-  const authHeaders = token ? { Authorization: `Bearer ${token}` } : {}
   const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData
 
-  const response = await fetch(url, {
+  const response = await fetch(url, authFetchInit({
     ...options,
     headers: {
       ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
       'Cache-Control': 'no-cache, no-store, must-revalidate',
       'Pragma': 'no-cache',
       'Expires': '0',
-      ...authHeaders,
       ...(options.headers as any),
     } as any,
-  })
+  }))
 
   if (!response.ok) {
     handleUnauthorizedResponse(response.status)
@@ -138,13 +131,6 @@ updateDirect: (sessionId: string, data: { title: string }) =>
     const url = `${API_CONFIG.baseUrl}${endpoint}?t=${Date.now()}`
     const formData = new FormData()
     formData.append('file', file)
-    const token = getAuthToken()
-    if (!token) {
-      console.warn('[ChatUpload] upload_start: missing auth token, upload likely returns 401', {
-        sessionId,
-        fileName: file.name,
-      })
-    }
     console.log('[ChatUpload] upload_start: POST backend → AI SDK (third-party storage)', {
       method: 'POST',
       url,
@@ -155,7 +141,6 @@ updateDirect: (sessionId: string, data: { title: string }) =>
     })
     return request<any>(endpoint, {
       method: 'POST',
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
       body: formData,
     }).then(
       (resource) => {
@@ -341,15 +326,9 @@ export const chatApi = {
   },
 
   downloadSource: async (sourceId: string) => {
-    const token = getAuthToken()
     const res = await fetch(
       `${API_CONFIG.baseUrl}${API_ENDPOINTS.chat}/source/${encodeURIComponent(sourceId)}?download=1&t=${Date.now()}`,
-      {
-        method: 'GET',
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-      }
+      authFetchInit({ method: 'GET' }),
     )
     if (!res.ok) {
       handleUnauthorizedResponse(res.status)
@@ -370,15 +349,9 @@ export const chatApi = {
   },
 
   fetchSourceFile: async (sourceId: string) => {
-    const token = getAuthToken()
     const res = await fetch(
       `${API_CONFIG.baseUrl}${API_ENDPOINTS.chat}/source/${encodeURIComponent(sourceId)}?t=${Date.now()}`,
-      {
-        method: 'GET',
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-      }
+      authFetchInit({ method: 'GET' }),
     )
     if (!res.ok) {
       handleUnauthorizedResponse(res.status)

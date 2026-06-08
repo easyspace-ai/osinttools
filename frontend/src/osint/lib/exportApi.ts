@@ -1,4 +1,4 @@
-import { getOsintAccessToken } from '@/osint/auth'
+import { authFetchInit } from '@/osint/auth'
 
 export interface ReflowMarkdownRequest {
   markdown: string
@@ -13,19 +13,11 @@ export interface ReflowMarkdownResponse {
  * The AI reorganizes headings, paragraphs, and lists without changing any factual content.
  */
 export async function reflowMarkdown(markdown: string): Promise<string> {
-  const token = getOsintAccessToken()
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-  }
-  if (token) {
-    headers.Authorization = `Bearer ${token}`
-  }
-
-  const res = await fetch('/api/export/reflow-markdown', {
+  const res = await fetch('/api/export/reflow-markdown', authFetchInit({
     method: 'POST',
-    headers,
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ markdown } satisfies ReflowMarkdownRequest),
-  })
+  }))
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))

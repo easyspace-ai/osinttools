@@ -4,7 +4,7 @@ import { cn } from '@/osint/utils'
 import { MarkdownRenderer } from '@/osint/components/MarkdownRenderer'
 import { useToast } from '@/osint/components/ui/Feedback'
 import { API_ENDPOINTS, API_CONFIG } from '@/osint/config/api'
-import { getOsintAccessToken } from '@/osint/auth'
+import { authFetchInit } from '@/osint/auth'
 import { chatPreviewLog, isLocalPreviewId } from '@/osint/lib/chatPreviewLog'
 import {
   loadPreviewBlob,
@@ -124,8 +124,6 @@ const buildArtifactUrl = (resourceId: string, type: 'preview' | 'download'): str
     : API_ENDPOINTS.projectArtifactDownload(resourceId)
   return `${baseUrl}${endpoint}`
 }
-
-const getAuthToken = (): string | null => getOsintAccessToken()
 
 const isPdfMagic = (bytes: Uint8Array): boolean =>
   bytes.length >= 5 &&
@@ -249,16 +247,12 @@ export default function ArtifactPreviewPanel({
     if (mediaBlobUrl) return mediaBlobUrl
     // Blob types must not fall back to /preview URL (avoids 404 + retry loops while cache loads)
     if (needsBlobPreview) return ''
-    const token = getAuthToken()
-    const baseUrl = buildArtifactUrl(viewingResource.id, 'preview')
-    return token ? `${baseUrl}?token=${encodeURIComponent(token)}` : baseUrl
+    return buildArtifactUrl(viewingResource.id, 'preview')
   }, [viewingResource.id, isLocalPreview, localBlobUrl, mediaBlobUrl, needsBlobPreview])
 
   const downloadUrl = useMemo(() => {
     if (isLocalPreview) return localBlobUrl || ''
-    const token = getAuthToken()
-    const baseUrl = buildArtifactUrl(viewingResource.id, 'download')
-    return token ? `${baseUrl}?token=${encodeURIComponent(token)}` : baseUrl
+    return buildArtifactUrl(viewingResource.id, 'download')
   }, [viewingResource.id, isLocalPreview, localBlobUrl])
 
   useEffect(() => {
@@ -579,17 +573,12 @@ export default function ArtifactPreviewPanel({
       const path = API_ENDPOINTS.projectArtifactPreview(resourceId)
       const base = API_CONFIG.baseUrl || ''
       let url = `${base}${path}`
-      const token = getAuthToken()
       const headers: Record<string, string> = {
         Accept: 'application/pdf,application/octet-stream;q=0.9,*/*;q=0.8',
       }
-      if (token) {
-        headers.Authorization = `Bearer ${token}`
-        url += `${url.includes('?') ? '&' : '?'}token=${encodeURIComponent(token)}`
-      }
 
       try {
-        const res = await fetch(url, { headers, signal: ac.signal })
+        const res = await fetch(url, authFetchInit({ headers, signal: ac.signal }))
         if (!res.ok) {
           if ([401, 403, 429].includes(res.status)) {
             const t = await res.text().catch(() => '')
@@ -738,16 +727,11 @@ export default function ArtifactPreviewPanel({
         }
       }
 
-      const token = getAuthToken()
       const headers: Record<string, string> = {
         Accept: 'text/markdown,text/plain,*/*',
       }
-      if (token) headers.Authorization = `Bearer ${token}`
 
       const fetchUrl = buildArtifactUrl(resourceId, 'preview')
-      const urlWithToken = token
-        ? `${fetchUrl}?token=${encodeURIComponent(token)}`
-        : fetchUrl
 
       chatPreviewLog('load_server', 'fetching artifact preview', {
         resourceId,
@@ -755,7 +739,7 @@ export default function ArtifactPreviewPanel({
       })
 
       try {
-        const res = await fetch(urlWithToken, { headers, signal: ac.signal })
+        const res = await fetch(fetchUrl, authFetchInit({ headers, signal: ac.signal }))
         if (!res.ok) {
           if ([401, 403, 429].includes(res.status)) {
             throw new Error(

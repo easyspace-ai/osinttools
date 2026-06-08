@@ -1,4 +1,4 @@
-import { authHeaders } from '@/lib/authApi'
+import { authFetchInit, authHeaders } from '@/lib/authApi'
 
 const XSTREAM_V1 = '/api/xstream'
 
@@ -21,10 +21,10 @@ export interface XStreamResponse {
 
 /** 向后端触发历史回填（上游 sinceId=0 最新，再按 nextSinceId 向更早历史翻页） */
 export async function triggerInitFetch(): Promise<void> {
-  const response = await fetch(`${XSTREAM_V1}/init`, {
+  const response = await fetch(`${XSTREAM_V1}/init`, authFetchInit({
     method: 'POST',
     headers: authHeaders(),
-  })
+  }))
   if (!response.ok) {
     throw new Error('Failed to trigger init fetch')
   }
@@ -32,7 +32,7 @@ export async function triggerInitFetch(): Promise<void> {
 
 /** 获取数据库中最新的 ID */
 export async function fetchLatestId(): Promise<number> {
-  const response = await fetch(`${XSTREAM_V1}/latest-id`, { headers: authHeaders() })
+  const response = await fetch(`${XSTREAM_V1}/latest-id`, authFetchInit({ headers: authHeaders() }))
   if (!response.ok) {
     throw new Error('Failed to fetch latest id')
   }
@@ -48,7 +48,7 @@ export async function fetchXStreamItems(offset = 0, limit = 50, type = 'all'): P
   if (type && type !== 'all') {
     params.set('type', type)
   }
-  const response = await fetch(`${XSTREAM_V1}/items?${params}`, { headers: authHeaders() })
+  const response = await fetch(`${XSTREAM_V1}/items?${params}`, authFetchInit({ headers: authHeaders() }))
   if (!response.ok) {
     const err = await response.json().catch(() => ({}))
     throw new Error((err as { error?: string }).error || 'Failed to fetch xstream items')
@@ -64,7 +64,7 @@ export async function fetchXStreamSince(sinceId: number, limit = 50, type = 'all
   if (type && type !== 'all') {
     params.set('type', type)
   }
-  const response = await fetch(`${XSTREAM_V1}/since?${params}`, { headers: authHeaders() })
+  const response = await fetch(`${XSTREAM_V1}/since?${params}`, authFetchInit({ headers: authHeaders() }))
   if (!response.ok) {
     const err = await response.json().catch(() => ({}))
     throw new Error((err as { error?: string }).error || 'Failed to fetch xstream since')
@@ -74,7 +74,7 @@ export async function fetchXStreamSince(sinceId: number, limit = 50, type = 'all
 
 /** 手动触发一次增量拉取 */
 export async function triggerXStreamFetch(): Promise<void> {
-  const response = await fetch(`${XSTREAM_V1}/trigger`, { headers: authHeaders() })
+  const response = await fetch(`${XSTREAM_V1}/trigger`, authFetchInit({ headers: authHeaders() }))
   if (!response.ok) {
     throw new Error('Failed to trigger fetch')
   }

@@ -1,7 +1,7 @@
 /** Legacy proxy to local market service (top / search). */
 const MARKET_PROXY = '/api/markets'
 
-import { authHeaders } from '@/lib/authApi'
+import { authFetchInit, authHeaders } from '@/lib/authApi'
 
 /** Main Go backend — resolve / save / history (see backend cmd/server). */
 const POLY_V1 = '/api/polymarket'
@@ -320,7 +320,7 @@ export interface SavedPolymarketEvent {
 }
 
 export async function listSavedPolymarketEvents(): Promise<SavedPolymarketEvent[]> {
-   const response = await fetch(`${POLY_V1}/saved`, { headers: authHeaders() })
+   const response = await fetch(`${POLY_V1}/saved`, authFetchInit({ headers: authHeaders() }))
    if (!response.ok) {
      const err = await response.json().catch(() => ({}))
      throw new Error((err as { error?: string }).error || 'List failed')
@@ -362,11 +362,11 @@ export async function savePolymarketEvent(payload: {
   rules: string
   background: string
 }): Promise<SavedPolymarketEvent> {
-  const response = await fetch(`${POLY_V1}/save`, {
+  const response = await fetch(`${POLY_V1}/save`, authFetchInit({
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify(payload),
-  })
+  }))
   if (!response.ok) {
     const err = await response.json().catch(() => ({}))
     throw new Error((err as { error?: string }).error || 'Save failed')
@@ -394,10 +394,10 @@ export async function savePolymarketEvent(payload: {
 }
 
 export async function deleteSavedPolymarketEvent(id: string): Promise<void> {
-   const response = await fetch(`${POLY_V1}/saved/${encodeURIComponent(id)}`, {
+   const response = await fetch(`${POLY_V1}/saved/${encodeURIComponent(id)}`, authFetchInit({
      method: 'DELETE',
      headers: authHeaders(),
-   })
+   }))
   if (!response.ok && response.status !== 204) {
     const err = await response.json().catch(() => ({}))
     throw new Error((err as { error?: string }).error || 'Delete failed')
@@ -427,9 +427,9 @@ export async function fetchSavedPolymarketChatHistory(
   if (typeof params?.offset === 'number') usp.set('offset', String(params.offset))
   if (typeof params?.limit === 'number') usp.set('limit', String(params.limit))
   usp.set('t', String(Date.now()))
-  const response = await fetch(`${POLY_V1}/saved/${encodeURIComponent(savedEventId)}/chat/history?${usp}`, {
+  const response = await fetch(`${POLY_V1}/saved/${encodeURIComponent(savedEventId)}/chat/history?${usp}`, authFetchInit({
     headers: { ...authHeaders() },
-  })
+  }))
   if (!response.ok) {
     const err = await response.json().catch(() => ({}))
     throw new Error((err as { detail?: string; error?: string }).detail || (err as { error?: string }).error || 'Chat history failed')

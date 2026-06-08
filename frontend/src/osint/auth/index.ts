@@ -1,10 +1,9 @@
-import { getOsintAccessToken, useOsintAuthStore } from './store'
+import { useOsintAuthStore } from './store'
 
 export { OSINT_AUTH_STORAGE_KEY, LEGACY_STORAGE_KEYS, AUTH_API_PREFIX } from './constants'
 export type {
   CurrentUser,
   AuthConfig,
-  AuthLoginResponse,
   PersistedAuthSlice,
   AuthFailureReason,
 } from './types'
@@ -18,15 +17,16 @@ export {
   readPersistedSlice,
 } from './storage'
 export { migrateLegacyAuthStorage } from './migrate'
-export { maybeRenewAccessToken, tokenNeedsRenewal } from './session'
+export { scheduleRenewIfDue, recoverSessionFromCookie } from './session'
 export {
   authHeaders,
+  authFetchInit,
+  authedFetch,
   fetchAuthConfig,
   loginRequest,
   registerRequest,
   getMe,
-  renewTokenRequest,
-  syncAuthCookie,
+  renewSessionRequest,
   logoutRequest,
   changePassword,
   sendVerificationCode,
@@ -39,7 +39,7 @@ export {
   useOsintAuthStore,
   getOsintAccessToken,
   getOsintAuthHeaders,
-  ensureValidAccessToken,
+  ensureAuthenticatedSession,
   getAuthenticatedHeaders,
   type OsintAuthStore,
   fetchCurrentUser,
@@ -54,17 +54,17 @@ export { OsintAuthProvider, useOsintAuth, useOsintAuthOptional, useOsintUser } f
 /** @deprecated Use OSINT_AUTH_STORAGE_KEY — kept for gradual migration of imports. */
 export const AUTH_TOKEN_KEY = 'osint-auth'
 
+/** @deprecated Cookie-only auth — always null. */
 export function getStoredToken(): string | null {
-  return getOsintAccessToken()
+  return null
 }
 
-export function setStoredToken(token: string | null): void {
-  useOsintAuthStore.getState().setToken(token)
+/** @deprecated Cookie-only auth — no-op. */
+export function setStoredToken(_token: string | null): void {
+  /* session is HttpOnly cookie only */
 }
 
-/** @deprecated Use getOsintAuthHeaders() */
+/** @deprecated Use authFetchInit() / authedFetch(). */
 export function legacyAuthHeaders(): HeadersInit {
-  return useOsintAuthStore.getState().token
-    ? { Authorization: `Bearer ${useOsintAuthStore.getState().token}` }
-    : {}
+  return {}
 }
