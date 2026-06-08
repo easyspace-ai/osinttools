@@ -1,29 +1,29 @@
 package http
 
 import (
-	"database/sql"
+	"context"
 	"log/slog"
 	"strconv"
+	"time"
 
 	"github.com/easyspace-ai/ylmnote/internal/application/xstream"
 	"github.com/easyspace-ai/ylmnote/internal/infrastructure/persistence"
-	"github.com/easyspace-ai/ylmnote/internal/worker"
+	"github.com/easyspace-ai/ylmnote/internal/scheduler"
 	"github.com/gin-gonic/gin"
-	"github.com/riverqueue/river"
 )
 
 // XStreamHandler handles X stream HTTP endpoints.
 type XStreamHandler struct {
-	repo        *persistence.XStreamRepository
-	fetcher     *xstream.Fetcher
-	riverClient *river.Client[*sql.Tx]
+	repo       *persistence.XStreamRepository
+	fetcher    *xstream.Fetcher
+	scheduler  *scheduler.Scheduler
 }
 
-func NewXStreamHandler(repo *persistence.XStreamRepository, fetcher *xstream.Fetcher, riverClient *river.Client[*sql.Tx]) *XStreamHandler {
+func NewXStreamHandler(repo *persistence.XStreamRepository, fetcher *xstream.Fetcher, sched *scheduler.Scheduler) *XStreamHandler {
 	return &XStreamHandler{
-		repo:        repo,
-		fetcher:     fetcher,
-		riverClient: riverClient,
+		repo:      repo,
+		fetcher:   fetcher,
+		scheduler: sched,
 	}
 }
 
@@ -94,22 +94,19 @@ func (h *XStreamHandler) LatestIdGET(c *gin.Context) {
 }
 
 func (h *XStreamHandler) TriggerGET(c *gin.Context) {
-	if h.riverClient != nil {
-		if _, err := h.riverClient.Insert(c.Request.Context(), worker.XStreamSyncArgs{}, nil); err != nil {
-			slog.Warn("xstream trigger: river insert failed, falling back to direct fetch", slog.Any("err", err))
-			if h.fetcher == nil {
-				c.JSON(500, gin.H{"error": err.Error()})
-				return
-			}
-			if fetchErr := h.fetcher.FetchOnce(c.Request.Context()); fetchErr != nil {
-				c.JSON(500, gin.H{"error": fetchErr.Error()})
-				return
-			}
-			c.JSON(200, gin.H{"status": "fetched", "mode": "direct"})
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 2*time.Minute)
+	defer cancel()
+
+	if h.scheduler != nil {
+		if err := h.scheduler.RunXStreamSync(ctx); err != nil {
+			c.JSON(500, gin.H{"error": err.Error()})
 			return
 		}
-	} else if h.fetcher != nil {
-		if err := h.fetcher.FetchOnce(c.Request.Context()); err != nil {
+		c.JSON(200, gin.H{"status": "fetched", "mode": "scheduler"})
+		return
+	}
+	if h.fetcher != nil {
+		if err := h.fetcher.FetchOnce(ctx); err != nil {
 			c.JSON(500, gin.H{"error": err.Error()})
 			return
 		}

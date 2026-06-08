@@ -108,54 +108,6 @@ func RenewAuthMiddleware(authSvc *auth.Service) gin.HandlerFunc {
 	return authMiddlewareWithLeeway(authSvc, 30*24*time.Hour)
 }
 
-// JobsAuthBridge 将 URL 中的 ?token= 转为 Cookie 后重定向，便于 River UI 后续 API 请求带 Cookie。
-func JobsAuthBridge(authSvc *auth.Service) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		token := strings.TrimSpace(c.Query("token"))
-		if token == "" {
-			c.Next()
-			return
-		}
-		if cookie, err := c.Cookie(authCookieName); err == nil && cookie != "" {
-			c.Redirect(http.StatusFound, "/jobs")
-			c.Abort()
-			return
-		}
-		if cookie, err := c.Cookie(legacyAuthCookieName); err == nil && cookie != "" {
-			c.Redirect(http.StatusFound, "/jobs")
-			c.Abort()
-			return
-		}
-		parsed, err := jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
-			if token.Method.Alg() != jwt.SigningMethodHS256.Alg() {
-				return nil, jwt.ErrTokenSignatureInvalid
-			}
-			return []byte(authSvc.Secret()), nil
-		})
-		if err != nil || !parsed.Valid {
-			c.Next()
-			return
-		}
-		claims, ok := parsed.Claims.(jwt.MapClaims)
-		if !ok {
-			c.Next()
-			return
-		}
-		sub, _ := claims["sub"].(string)
-		if sub == "" {
-			c.Next()
-			return
-		}
-		if _, err := authSvc.GetUserByID(sub); err != nil {
-			c.Next()
-			return
-		}
-		setAuthCookie(c, token, 86400*365)
-		c.Redirect(http.StatusFound, "/jobs")
-		c.Abort()
-	}
-}
-
 // GetCurrentUser 从 context 取出当前用户（仅中间件之后使用）
 func GetCurrentUser(c *gin.Context) (*user.User, bool) {
 	v, ok := c.Get(currentUserKey)

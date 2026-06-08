@@ -1,13 +1,13 @@
 import { j as t } from "./three-Bpr2UrKt.js";
 import { a as r } from "./monaco-BqKDZJPO.js";
-import { p as de, a as Se, q as ve, r as ke, L as b, s as le, M as Ee, S as $e, t as Ce, c as Le, v as _e } from "./main-CO1ACS3f.js";
-import { p as ze } from "./themePresets-CTREo-sh.js";
-import { o as f, a as ue, i as W } from "./routes-Da9g6MaL.js";
-import { S as Me, P as Ie } from "./PptxgenjsEditor-ChQoiGnS.js";
+import { p as de, a as Se, q as ve, r as ke, L as b, s as le, M as Ee, S as $e, t as Ce, c as Le, v as _e } from "./main-D1qvMvnc.js";
+import { p as ze } from "./themePresets-BDkZrJez.js";
+import { o as f, a as ue, i as W } from "./routes-HDhk4o11.js";
+import { S as Me, P as Ie } from "./PptxgenjsEditor-BnatKH1L.js";
 import "./charts-DMPjqeFU.js";
 import "./routes-UgFNxPGD.js";
 import "./pptx-worker-BYWhLrI0.js";
-import "./PipelineProgressPanel-DUdbSIHQ.js";
+import "./PipelineProgressPanel-46oACUrs.js";
 const S = /* @__PURE__ */ new Map(), Te = 8;
 function Re(s) {
   return s.pageId || s.id || `page-${s.pageNumber}`;

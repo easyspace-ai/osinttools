@@ -63,6 +63,7 @@ export const useOsintAuthStore = create<OsintAuthStore>()(
       setUser: (user) => set({ user }),
 
       clearSession: (reason = null) => {
+        lastMeValidatedAt = 0
         set({ token: null, user: null, lastFailure: reason })
       },
 
@@ -166,6 +167,9 @@ export function getOsintAuthHeaders(): HeadersInit {
   return headers
 }
 
+let lastMeValidatedAt = 0
+const meValidationTTLMs = 90_000
+
 /** 续期并校验 token；失败时清会话并提示重新登录。 */
 export async function ensureValidAccessToken(): Promise<string> {
   let token = getOsintAccessToken()
@@ -179,8 +183,15 @@ export async function ensureValidAccessToken(): Promise<string> {
   }
   useOsintAuthStore.getState().setToken(token)
   await syncAuthCookie(token)
+
+  const now = Date.now()
+  if (now - lastMeValidatedAt < meValidationTTLMs) {
+    return token
+  }
+
   try {
     await getMe(token)
+    lastMeValidatedAt = now
   } catch (err) {
     if (isAuthHttpError(err) && err.status === 401) {
       useOsintAuthStore.getState().clearSession('expired')

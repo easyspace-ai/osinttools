@@ -223,7 +223,7 @@ func (f *Fetcher) CancelInitialize() bool {
 	return true
 }
 
-// Initialize runs a blocking full backfill (used by River worker).
+// Initialize runs a blocking full backfill.
 func (f *Fetcher) Initialize(ctx context.Context) error {
 	return f.runInitialize(ctx)
 }
