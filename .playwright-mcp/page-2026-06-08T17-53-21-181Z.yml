@@ -1,0 +1,29 @@
+- generic [ref=e3]:
+  - generic [ref=e5]:
+    - generic [ref=e6]:
+      - img [ref=e8]
+      - generic [ref=e11]:
+        - generic [ref=e12]: 知微海纳
+        - generic [ref=e13]: 知微海纳
+    - heading "欢迎回来" [level=1] [ref=e15]
+    - generic [ref=e16]:
+      - generic [ref=e17]:
+        - text: 用户名、 邮箱或手机号码
+        - generic [ref=e18]:
+          - generic:
+            - img
+          - textbox "name@company.com" [ref=e19]
+      - generic [ref=e20]:
+        - generic [ref=e22]: 密码
+        - generic [ref=e23]:
+          - textbox "••••••••" [ref=e24]
+          - button [ref=e25]:
+            - img [ref=e26]
+      - button "立即登录" [ref=e29]:
+        - generic [ref=e30]:
+          - img
+          - text: 立即登录
+  - generic [ref=e34]:
+    - img [ref=e36]
+    - heading "专业投研平台" [level=2] [ref=e39]
+    - paragraph [ref=e40]: 强大的AI分析、助您在市场中把握每一个机会。

@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils'
 import { isAdmin } from '@/lib/authApi'
 import { useOsintUser } from '@/osint/auth'
 import { DashboardOverviewPanel } from './DashboardOverviewPanel'
+import { StreamCategoryModal } from './StreamCategoryModal'
 
 const BATCH_LIMIT = 50
 const STREAM_SYNC_INTERVAL_MS = 10 * 60 * 1000
@@ -93,6 +94,7 @@ function StreamColumn({
   selectedItemId,
   linkSourceType,
   onItemClick,
+  onTitleClick,
 }: {
   type: string
   items: DashboardItem[]
@@ -111,6 +113,7 @@ function StreamColumn({
   selectedItemId?: number | null
   linkSourceType?: string | null
   onItemClick?: (item: DashboardItem) => void
+  onTitleClick?: () => void
 }) {
   const scrollRootRef = useRef<HTMLDivElement | null>(null)
 
@@ -141,7 +144,18 @@ function StreamColumn({
     <div className="flex h-full min-w-[160px] flex-col bg-white dark:bg-slate-950">
       <div className="shrink-0 border-b border-slate-200 px-3 py-2.5 dark:border-slate-800">
         <div className="flex items-center justify-between">
-          <h2 className="truncate text-[13px] font-semibold text-slate-900 dark:text-slate-50">{type}</h2>
+          {onTitleClick ? (
+            <button
+              type="button"
+              onClick={onTitleClick}
+              className="truncate text-left text-[13px] font-semibold text-slate-900 transition-colors hover:text-blue-600 dark:text-slate-50 dark:hover:text-blue-400"
+              title={`查看「${type}」全部内容`}
+            >
+              {type}
+            </button>
+          ) : (
+            <h2 className="truncate text-[13px] font-semibold text-slate-900 dark:text-slate-50">{type}</h2>
+          )}
           {showRefresh ? (
             <Button
               variant="ghost"
@@ -291,6 +305,8 @@ export function DashboardRouteLayout() {
   const [linkResults, setLinkResults] = useState<DashboardItem[]>([])
   const [linkTotal, setLinkTotal] = useState(0)
   const [linkLoading, setLinkLoading] = useState(false)
+
+  const [categoryModalType, setCategoryModalType] = useState<string | null>(null)
 
   const filterMode: 'search' | 'link' | false = linkFilter
     ? 'link'
@@ -711,11 +727,40 @@ export function DashboardRouteLayout() {
                 selectedItemId={linkFilter?.sourceItemId ?? null}
                 linkSourceType={linkFilter?.sourceType ?? null}
                 onItemClick={filterMode === 'search' ? undefined : handleItemClick}
+                onTitleClick={() => setCategoryModalType(type)}
               />
             </div>
           ))
         )}
       </div>
+
+      <StreamCategoryModal
+        type={categoryModalType}
+        open={categoryModalType !== null}
+        onOpenChange={(open) => {
+          if (!open) setCategoryModalType(null)
+        }}
+        items={categoryModalType ? streamItems[categoryModalType] || [] : []}
+        totalCount={categoryModalType ? (streamTotalCounts[categoryModalType] ?? 0) : 0}
+        loading={categoryModalType ? (streamLoading[categoryModalType] ?? false) : false}
+        loadingMore={categoryModalType ? (streamLoadingMore[categoryModalType] ?? false) : false}
+        localHasMore={categoryModalType ? (streamHasMore[categoryModalType] ?? false) : false}
+        showBackfillButton={
+          !!categoryModalType &&
+          !(streamHasMore[categoryModalType] ?? false) &&
+          streamUpstreamHasMore[categoryModalType] !== false
+        }
+        onLoadMore={() => {
+          if (!categoryModalType) return
+          if (!(streamHasMore[categoryModalType] ?? false)) return
+          void loadStreamData(categoryModalType, true)
+        }}
+        onBackfill={() => {
+          if (categoryModalType) void handleBackfill(categoryModalType)
+        }}
+        onItemClick={handleItemClick}
+        selectedItemId={linkFilter?.sourceItemId ?? null}
+      />
     </div>
   )
 

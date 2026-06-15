@@ -1,0 +1,39 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - img [ref=e9]
+    - navigation [ref=e13]:
+      - generic [ref=e14]:
+        - link "预测市场" [ref=e16] [cursor=pointer]:
+          - /url: /polymarket
+          - img [ref=e18]
+        - link "X 信息流" [ref=e22] [cursor=pointer]:
+          - /url: /x-stream
+          - img [ref=e24]
+        - link "Dashboard" [ref=e27] [cursor=pointer]:
+          - /url: /dashboard
+          - img [ref=e29]
+        - link "AI 会话" [ref=e35] [cursor=pointer]:
+          - /url: /ai-session
+          - img [ref=e38]
+        - link "PPT" [ref=e42] [cursor=pointer]:
+          - /url: /ppt
+          - img [ref=e44]
+        - link "管理" [ref=e48] [cursor=pointer]:
+          - /url: /admin
+          - img [ref=e50]
+  - generic [ref=e53]:
+    - banner [ref=e54]:
+      - generic [ref=e55]:
+        - generic [ref=e56]:
+          - button [ref=e57]:
+            - img
+          - generic [ref=e58]:
+            - generic [ref=e59]: AI 会话
+            - generic [ref=e60]: /
+            - generic [ref=e61]: sessions
+            - generic [ref=e62]: /
+            - generic [ref=e63]: 4IyadKnfYjqC
+        - button "a admin" [ref=e66]:
+          - generic [ref=e68]: a
+          - generic [ref=e71]: admin
+    - generic [ref=e73]: 加载情报工作台…

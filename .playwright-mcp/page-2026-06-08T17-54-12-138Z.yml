@@ -1,0 +1,405 @@
+- generic [ref=e41]:
+  - complementary [ref=e42]:
+    - img [ref=e47]
+    - navigation [ref=e51]:
+      - generic [ref=e52]:
+        - link "预测市场" [ref=e54] [cursor=pointer]:
+          - /url: /polymarket
+          - img [ref=e56]
+        - link "X 信息流" [ref=e60] [cursor=pointer]:
+          - /url: /x-stream
+          - img [ref=e62]
+        - link "Dashboard" [ref=e65] [cursor=pointer]:
+          - /url: /dashboard
+          - img [ref=e67]
+        - link "AI 会话" [ref=e73] [cursor=pointer]:
+          - /url: /ai-session
+          - img [ref=e76]
+        - link "PPT" [ref=e80] [cursor=pointer]:
+          - /url: /ppt
+          - img [ref=e82]
+        - link "管理" [ref=e86] [cursor=pointer]:
+          - /url: /admin
+          - img [ref=e88]
+  - generic [ref=e91]:
+    - banner [ref=e92]:
+      - generic [ref=e93]:
+        - generic [ref=e94]:
+          - button [ref=e95]:
+            - img
+          - generic [ref=e96]:
+            - generic [ref=e97]: AI 会话
+            - generic [ref=e98]: /
+            - generic [ref=e99]: sessions
+            - generic [ref=e100]: /
+            - generic [ref=e101]: 4IyadKnfYjqC
+        - button "a admin" [ref=e104]:
+          - generic [ref=e106]: a
+          - generic [ref=e109]: admin
+    - generic [ref=e112]:
+      - complementary [ref=e113]:
+        - generic [ref=e114]:
+          - generic [ref=e115]:
+            - img [ref=e117]
+            - generic [ref=e120]: 情报工作台
+          - button "新会话" [ref=e122]:
+            - img [ref=e123]
+            - text: 新会话
+          - generic [ref=e124]:
+            - generic [ref=e125] [cursor=pointer]:
+              - img [ref=e126]
+              - generic [ref=e128]: 中国OSINT公司调查
+              - button [ref=e130]:
+                - img [ref=e131]
+            - generic [ref=e135] [cursor=pointer]:
+              - img [ref=e136]
+              - generic [ref=e138]: 英伟达-财报解读报告 (1)
+              - button [ref=e140]:
+                - img [ref=e141]
+            - generic [ref=e145] [cursor=pointer]:
+              - img [ref=e146]
+              - generic [ref=e148]: 2030 年的世界会是什么样的，特别关注ai 的影响
+              - button [ref=e150]:
+                - img [ref=e151]
+            - generic [ref=e155] [cursor=pointer]:
+              - img [ref=e156]
+              - generic [ref=e158]: 2025年同行财务人效分析
+              - button [ref=e160]:
+                - img [ref=e161]
+            - generic [ref=e165] [cursor=pointer]:
+              - img [ref=e166]
+              - generic [ref=e168]: 竞品调研分析任务
+              - button [ref=e170]:
+                - img [ref=e171]
+            - generic [ref=e175] [cursor=pointer]:
+              - img [ref=e176]
+              - generic [ref=e178]: 霍尔木兹海峡航运核实
+              - button [ref=e180]:
+                - img [ref=e181]
+      - generic [ref=e187]:
+        - generic [ref=e189]:
+          - generic [ref=e191]: 上滑可加载更早消息
+          - generic [ref=e192]:
+            - generic [ref=e196]:
+              - paragraph [ref=e197]: 你是一个专业的开源情报（OSINT）资料收集助手。请根据以下用户输入，对指定议题进行全面、系统的资料收集。
+              - heading "收集主题" [level=2] [ref=e198]:
+                - img [ref=e199]
+                - text: 收集主题
+              - paragraph [ref=e201]: 中国有哪些做开源情报的公司
+              - heading "优先信源类型" [level=2] [ref=e202]:
+                - img [ref=e203]
+                - text: 优先信源类型
+              - heading "最少收集数量" [level=2] [ref=e205]:
+                - img [ref=e206]
+                - text: 最少收集数量
+              - paragraph [ref=e208]: max
+              - separator [ref=e209]
+              - heading "核心原则" [level=3] [ref=e210]
+              - paragraph [ref=e211]:
+                - strong [ref=e212]: 全面性第一
+                - text: ：你必须穷尽检索范围内所有可获取的相关资料，逐一列出，禁止筛选、精简或「挑几个代表性的」。如果检索结果超过 50 条，分批输出并确保无遗漏。低于「最少收集数量」视为任务未完成。
+              - paragraph [ref=e213]:
+                - strong [ref=e214]: 禁止敷衍
+                - text: ：任何形式的偷懒——如只列 3-4 条然后说「等」、用「包括但不限于」跳过列举、合并多条为一条——都属于违规。每条资料必须独立列出，拥有完整的四要素。
+              - heading "执行要求" [level=3] [ref=e215]
+              - list [ref=e216]:
+                - listitem [ref=e217]:
+                  - strong [ref=e218]: 多策略检索
+                  - text: ：
+              - list [ref=e219]:
+                - listitem [ref=e220]: 至少使用 3 组不同关键词组合进行检索
+                - listitem [ref=e221]: 每组关键词覆盖不同角度和语言表述
+                - listitem [ref=e222]: 对每个搜索结果页进行翻页，确保不遗漏后续页面内容
+                - listitem [ref=e223]: 若「优先信源类型」为空，则覆盖全部信源类型；若指定了类型，则优先检索对应类型
+              - list [ref=e224]:
+                - listitem [ref=e225]:
+                  - strong [ref=e226]: 去重与验证
+                  - text: ：
+              - list [ref=e227]:
+                - listitem [ref=e228]: 同一条信息被多个媒体报道的，列出所有来源而非只保留一个
+                - listitem [ref=e229]: 明显为机器聚合或抄袭转载的内容标注「衍生/转载」
+                - listitem [ref=e230]: 标注每条资料的发布/更新时间
+              - list [ref=e231]:
+                - listitem [ref=e232]:
+                  - strong [ref=e233]: 信息提取
+                  - text: ：
+              - list [ref=e234]:
+                - listitem [ref=e235]: 从每篇资料中提取核心观点，禁止仅靠标题概括
+                - listitem [ref=e236]: 核心观点使用中文表述，保留关键数据、人名、机构名
+                - listitem [ref=e237]: 若原文为非中文，标题栏同时列出中文翻译和原文
+              - heading "输出格式" [level=3] [ref=e238]
+              - paragraph [ref=e239]: 严格按以下格式逐条输出，不得使用任何其他结构包裹：
+              - list [ref=e240]:
+                - listitem [ref=e241]: 标题：中文标题（原文标题）
+                - listitem [ref=e242]: 媒体名称：XX
+                - listitem [ref=e243]: 原始链接：https://...
+                - listitem [ref=e244]: 核心观点：[2-4句话概括该资料的核心事实、论点或数据]
+              - paragraph [ref=e245]: （持续列举直到全部输出完毕）
+              - heading "完成标准" [level=3] [ref=e246]
+              - list [ref=e247]:
+                - listitem [ref=e248]: 列举数量 ≥ 最少收集数量
+                - listitem [ref=e249]: 每条资料四要素完整无缺
+                - listitem [ref=e250]: 已覆盖检索范围内的主要信源维度
+                - listitem [ref=e251]: 如确实无法达到最少收集数量，必须逐条说明每一条检索策略的覆盖情况和结果数量，证明已穷尽检索
+            - img [ref=e253]
+          - button "展开思考步骤" [ref=e257]:
+            - img [ref=e258]
+            - generic [ref=e260]:
+              - generic [ref=e261]:
+                - generic [ref=e262]: 思考过程
+                - generic [ref=e263]: 15 步
+              - paragraph [ref=e264]: 内部 12 · 系统 3
+              - paragraph [ref=e265]: "现在需要给BUF_A中138个条目添加`[^src_N]`脚注引用，以通过citation_checker验证。这是过去多次遇到的相同问题——程序化添加脚注是最可靠的方式。下轮验证stdout…"
+            - generic [ref=e266]: 展开步骤
+          - generic [ref=e267]:
+            - generic [ref=e269]: C
+            - generic [ref=e270]:
+              - generic [ref=e271]:
+                - generic [ref=e275]:
+                  - heading "中国开源情报（OSINT）公司/机构资料收集完成" [level=2] [ref=e276]:
+                    - img [ref=e277]
+                    - text: 中国开源情报（OSINT）公司/机构资料收集完成
+                  - paragraph [ref=e279]:
+                    - text: 本次收集共覆盖
+                    - strong [ref=e280]: "138"
+                    - text: 个独立条目，涵盖以下维度：
+                  - list [ref=e281]:
+                    - listitem [ref=e282]:
+                      - strong [ref=e283]: 独立OSINT厂商
+                      - text: ：福韵数据、云孚科技、渊亭科技、星汉数智、盘拓科技、远韬科技等
+                    - listitem [ref=e284]:
+                      - strong [ref=e285]: 民营智库与情报咨询
+                      - text: ：远望智库/Techxcope、知远所、蓝海长青、诺方知远、蓝凌情报平台、四川警察学院OSINT研究中心等
+                    - listitem [ref=e286]:
+                      - strong [ref=e287]: 舆情监测与竞争情报
+                      - text: ：清博智能、人民网舆情数据中心、蚁坊软件、艾普思、慧科讯业、新浪舆情通/蜜度、Meltwater融文、艾瑞咨询、赛迪顾问、易观分析等
+                    - listitem [ref=e288]:
+                      - strong [ref=e289]: 网络安全威胁情报
+                      - text: ：微步在线/ThreatBook、奇安信、360数字安全、启明星辰VenusEye、亚信安全、安恒信息、长亭科技、天际友盟、知道创宇、绿盟科技、深信服、中孚信息、拓尔思天目等
+                    - listitem [ref=e290]:
+                      - strong [ref=e291]: 大数据与监控
+                      - text: ：锐安科技、振华数据、Knowlesys/乐思、明略科技
+                    - listitem [ref=e292]:
+                      - strong [ref=e293]: 国家级情报与科研机构
+                      - text: ：中信所/ISTIC、中科院科技战略咨询研究院、社科院信息情报研究院、上海科技情报研究所、中国科技情报学会、中国中文信息学会开源情报专委会等
+                    - listitem [ref=e294]:
+                      - strong [ref=e295]: 遥感/地理空间情报
+                      - text: ：中科院空天院、国家对地观测科学数据中心、国家遥感数据服务平台、国家地球系统科学数据中心、地理空间数据云、中国地质调查局航空物探遥感中心等
+                    - listitem [ref=e296]:
+                      - strong [ref=e297]: 国际视角
+                      - text: ：Recorded Future报告、CISA公告、Karve International、Datenna、OSINT on China等
+                  - paragraph [ref=e298]: 详细条目请见附件文件，每条均包含标题、媒体名称、原始链接、核心观点及脚注引用（[^src_N]）。
+                - generic [ref=e300]:
+                  - img [ref=e302]
+                  - generic [ref=e307]:
+                    - paragraph [ref=e308]: osint_china_companies_draft.md
+                    - paragraph [ref=e309]: file
+                  - button "View" [ref=e310]:
+                    - generic [ref=e311]:
+                      - img [ref=e312]
+                      - text: View
+              - generic [ref=e316]:
+                - button "复制" [ref=e317]:
+                  - img [ref=e318]
+                  - generic [ref=e321]: 复制
+                - button "保存" [ref=e322]:
+                  - img [ref=e323]
+                  - generic [ref=e326]: 保存
+                - button "重试" [ref=e327]:
+                  - img [ref=e328]
+                  - generic [ref=e333]: 重试
+          - button "展开思考步骤" [ref=e335]:
+            - img [ref=e336]
+            - generic [ref=e338]:
+              - generic [ref=e339]:
+                - generic [ref=e340]: 思考过程
+                - generic [ref=e341]: 2 步
+              - paragraph [ref=e342]: 推理 1 · 内部 1
+              - paragraph [ref=e343]: Now extracting from reader [17] (competitive intelligence, social media monitoring, academic ins…
+            - generic [ref=e344]: 展开步骤
+          - generic [ref=e345]:
+            - generic [ref=e347]: C
+            - generic [ref=e355]:
+              - button "复制" [ref=e356]:
+                - img [ref=e357]
+                - generic [ref=e360]: 复制
+              - button "保存" [ref=e361]:
+                - img [ref=e362]
+                - generic [ref=e365]: 保存
+              - button "重试" [ref=e366]:
+                - img [ref=e367]
+                - generic [ref=e372]: 重试
+          - button "展开思考步骤" [ref=e374]:
+            - img [ref=e375]
+            - generic [ref=e377]:
+              - generic [ref=e378]:
+                - generic [ref=e379]: 思考过程
+                - generic [ref=e380]: 2 步
+              - paragraph [ref=e381]: 推理 1 · 内部 1
+              - paragraph [ref=e382]: Reader [17] 显示了新一批结果（中信所ISTIC、全国开源情报技术大会、中国中文信息学会开源情报专委会等），我需要提取这些条目，同时补充搜索尚未覆盖的公司（绿盟科技、深信服、天际友盟…
+            - generic [ref=e383]: 展开步骤
+          - generic [ref=e384]:
+            - generic [ref=e386]: C
+            - generic [ref=e394]:
+              - button "复制" [ref=e395]:
+                - img [ref=e396]
+                - generic [ref=e399]: 复制
+              - button "保存" [ref=e400]:
+                - img [ref=e401]
+                - generic [ref=e404]: 保存
+              - button "重试" [ref=e405]:
+                - img [ref=e406]
+                - generic [ref=e411]: 重试
+          - button "展开思考步骤" [ref=e413]:
+            - img [ref=e414]
+            - generic [ref=e416]:
+              - generic [ref=e417]:
+                - generic [ref=e418]: 思考过程
+                - generic [ref=e419]: 2 步
+              - paragraph [ref=e420]: 推理 1 · 内部 1
+              - paragraph [ref=e421]: 现在从阅读器[18]提取可见条目，翻页，并补充最后缺失的公司条目。从读者[18]中提取了8条新条目（远望智库/Techxcope补充、明略科技、中科院空天院/Kantian关联、遥感情报学术期…
+            - generic [ref=e422]: 展开步骤
+          - generic [ref=e423]:
+            - generic [ref=e425]: C
+            - generic [ref=e433]:
+              - button "复制" [ref=e434]:
+                - img [ref=e435]
+                - generic [ref=e438]: 复制
+              - button "保存" [ref=e439]:
+                - img [ref=e440]
+                - generic [ref=e443]: 保存
+              - button "重试" [ref=e444]:
+                - img [ref=e445]
+                - generic [ref=e450]: 重试
+          - button "展开思考步骤" [ref=e452]:
+            - img [ref=e453]
+            - generic [ref=e455]:
+              - generic [ref=e456]:
+                - generic [ref=e457]: 思考过程
+                - generic [ref=e458]: 3 步
+              - paragraph [ref=e459]: 推理 1 · 内部 1 · 系统 1
+              - paragraph [ref=e460]: 从读者[19]第1-500行中提取剩余的OSINT相关公司/机构条目，并最终整理提交。下轮即可读取draft文件并提交最终结果。当前已收集约129个唯一条目。已从读者[19]中提取了14条新条…
+            - generic [ref=e461]: 展开步骤
+          - generic [ref=e462]:
+            - generic [ref=e464]: C
+            - generic [ref=e472]:
+              - button "复制" [ref=e473]:
+                - img [ref=e474]
+                - generic [ref=e477]: 复制
+              - button "保存" [ref=e478]:
+                - img [ref=e479]
+                - generic [ref=e482]: 保存
+              - button "重试" [ref=e483]:
+                - img [ref=e484]
+                - generic [ref=e489]: 重试
+          - button "展开思考步骤" [ref=e491]:
+            - img [ref=e492]
+            - generic [ref=e494]:
+              - generic [ref=e495]:
+                - generic [ref=e496]: 思考过程
+                - generic [ref=e497]: 3 步
+              - paragraph [ref=e498]: 推理 1 · 内部 1 · 系统 1
+              - paragraph [ref=e499]: Submission rejected. Rejected messages are NOT sent to the user, rectify the problem and try aga…
+            - generic [ref=e500]: 展开步骤
+          - generic [ref=e501]:
+            - generic [ref=e503]: C
+            - generic [ref=e511]:
+              - button "复制" [ref=e512]:
+                - img [ref=e513]
+                - generic [ref=e516]: 复制
+              - button "保存" [ref=e517]:
+                - img [ref=e518]
+                - generic [ref=e521]: 保存
+              - button "重试" [ref=e522]:
+                - img [ref=e523]
+                - generic [ref=e528]: 重试
+          - button "展开思考步骤" [ref=e530]:
+            - img [ref=e531]
+            - generic [ref=e533]:
+              - generic [ref=e534]:
+                - generic [ref=e535]: 思考过程
+                - generic [ref=e536]: 2 步
+              - paragraph [ref=e537]: 推理 1 · 内部 1
+              - paragraph [ref=e538]: "现在需要给BUF_A中138个条目添加`[^src_N]`脚注引用，以通过citation_checker验证。这是过去多次遇到的相同问题——程序化添加脚注是最可靠的方式。下轮验证stdout…"
+            - generic [ref=e539]: 展开步骤
+          - generic [ref=e540]:
+            - generic [ref=e542]: C
+            - generic [ref=e543]:
+              - generic [ref=e544]:
+                - generic [ref=e548]:
+                  - heading "中国开源情报（OSINT）公司/机构资料收集完成" [level=2] [ref=e549]:
+                    - img [ref=e550]
+                    - text: 中国开源情报（OSINT）公司/机构资料收集完成
+                  - paragraph [ref=e552]:
+                    - text: 本次收集共覆盖
+                    - strong [ref=e553]: "138"
+                    - text: 个独立条目，涵盖以下维度：
+                  - list [ref=e554]:
+                    - listitem [ref=e555]:
+                      - strong [ref=e556]: 独立OSINT厂商
+                      - text: ：福韵数据、云孚科技、渊亭科技、星汉数智、盘拓科技、远韬科技等
+                    - listitem [ref=e557]:
+                      - strong [ref=e558]: 民营智库与情报咨询
+                      - text: ：远望智库/Techxcope、知远所、蓝海长青、诺方知远、蓝凌情报平台、四川警察学院OSINT研究中心等
+                    - listitem [ref=e559]:
+                      - strong [ref=e560]: 舆情监测与竞争情报
+                      - text: ：清博智能、人民网舆情数据中心、蚁坊软件、艾普思、慧科讯业、新浪舆情通/蜜度、Meltwater融文、艾瑞咨询、赛迪顾问、易观分析等
+                    - listitem [ref=e561]:
+                      - strong [ref=e562]: 网络安全威胁情报
+                      - text: ：微步在线/ThreatBook、奇安信、360数字安全、启明星辰VenusEye、亚信安全、安恒信息、长亭科技、天际友盟、知道创宇、绿盟科技、深信服、中孚信息、拓尔思天目等
+                    - listitem [ref=e563]:
+                      - strong [ref=e564]: 大数据与监控
+                      - text: ：锐安科技、振华数据、Knowlesys/乐思、明略科技
+                    - listitem [ref=e565]:
+                      - strong [ref=e566]: 国家级情报与科研机构
+                      - text: ：中信所/ISTIC、中科院科技战略咨询研究院、社科院信息情报研究院、上海科技情报研究所、中国科技情报学会、中国中文信息学会开源情报专委会等
+                    - listitem [ref=e567]:
+                      - strong [ref=e568]: 遥感/地理空间情报
+                      - text: ：中科院空天院、国家对地观测科学数据中心、国家遥感数据服务平台、国家地球系统科学数据中心、地理空间数据云、中国地质调查局航空物探遥感中心等
+                    - listitem [ref=e569]:
+                      - strong [ref=e570]: 国际视角
+                      - text: ：Recorded Future报告、CISA公告、Karve International、Datenna、OSINT on China等
+                  - paragraph [ref=e571]: 详细条目请见附件文件，每条均包含标题、媒体名称、原始链接、核心观点及脚注引用（[^src_N]）。
+                - generic [ref=e573]:
+                  - img [ref=e575]
+                  - generic [ref=e580]:
+                    - paragraph [ref=e581]: osint_china_companies_draft.md
+                    - paragraph [ref=e582]: file
+                  - button "View" [ref=e583]:
+                    - generic [ref=e584]:
+                      - img [ref=e585]
+                      - text: View
+              - generic [ref=e589]:
+                - button "复制" [ref=e590]:
+                  - img [ref=e591]
+                  - generic [ref=e594]: 复制
+                - button "保存" [ref=e595]:
+                  - img [ref=e596]
+                  - generic [ref=e599]: 保存
+                - button "重试" [ref=e600]:
+                  - img [ref=e601]
+                  - generic [ref=e606]: 重试
+        - generic [ref=e608]:
+          - generic [ref=e609]:
+            - tablist "技能分组" [ref=e610]:
+              - tab "商业咨询" [selected] [ref=e611]
+              - tab "情报分析" [ref=e612]
+              - tab "股票分析" [ref=e613]
+            - tabpanel "商业咨询" [ref=e614]:
+              - button "商业计划评审" [ref=e615]:
+                - img [ref=e617]
+                - text: 商业计划评审
+              - button "竞品情报" [ref=e621]:
+                - img [ref=e623]
+                - text: 竞品情报
+              - button "市场分析" [ref=e626]:
+                - img [ref=e628]
+                - text: 市场分析
+          - generic [ref=e631]:
+            - generic [ref=e633]:
+              - textbox "Ask anything" [active] [ref=e634]
+              - button [disabled] [ref=e635]:
+                - img [ref=e636]
+            - button "本地文件" [ref=e641]:
+              - img [ref=e642]
+              - generic [ref=e644]: 本地文件

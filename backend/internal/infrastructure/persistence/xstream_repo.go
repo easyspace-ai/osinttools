@@ -68,15 +68,16 @@ func (r *XStreamRepository) GetPushLastSentMaxID(sessionID string) (int64, error
 	if sessionID == "" {
 		return 0, nil
 	}
-	var row DashboardPushStateModel
-	err := r.db.DB.Where("session_id = ?", sessionID).First(&row).Error
-	if err == gorm.ErrRecordNotFound {
-		return 0, nil
-	}
+	// Select only last_sent_max_id: migration 011 used TEXT for updated_at which breaks GORM time.Time scan.
+	var maxID int64
+	err := r.db.DB.Raw(
+		"SELECT last_sent_max_id FROM dashboard_push_state WHERE session_id = ? LIMIT 1",
+		sessionID,
+	).Scan(&maxID).Error
 	if err != nil {
 		return 0, err
 	}
-	return row.LastSentMaxID, nil
+	return maxID, nil
 }
 
 // SetPushLastSentMaxID persists W6 push cursor after a successful scheduled push.
@@ -84,12 +85,13 @@ func (r *XStreamRepository) SetPushLastSentMaxID(sessionID string, maxID int64) 
 	if sessionID == "" {
 		return nil
 	}
-	now := time.Now().UTC()
-	return r.db.DB.Save(&DashboardPushStateModel{
-		SessionID:     sessionID,
-		LastSentMaxID: maxID,
-		UpdatedAt:     now,
-	}).Error
+	return r.db.DB.Exec(`
+		INSERT INTO dashboard_push_state (session_id, last_sent_max_id, updated_at)
+		VALUES (?, ?, datetime('now'))
+		ON CONFLICT(session_id) DO UPDATE SET
+			last_sent_max_id = excluded.last_sent_max_id,
+			updated_at = datetime('now')
+	`, sessionID, maxID).Error
 }
 
 // ListSince returns items with remote_id > sinceId, ordered newest first.
