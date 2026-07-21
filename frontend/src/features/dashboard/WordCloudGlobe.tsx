@@ -47,8 +47,8 @@ function WordLabel({
       anchorX="center"
       anchorY="middle"
       maxWidth={2}
-      outlineWidth={0.02}
-      outlineColor="#0b0e14"
+      outlineWidth={0.025}
+      outlineColor="#f8fafc"
       onClick={() => onClick?.(word)}
       onPointerOver={(e) => { e.stopPropagation(); document.body.style.cursor = 'pointer' }}
       onPointerOut={(e) => { e.stopPropagation(); document.body.style.cursor = 'auto' }}
@@ -103,7 +103,7 @@ function GlobeScene({ words, onWordClick }: { words: WordCloudWord[]; onWordClic
 /** 仅 3D 球面画布，不含顶栏 */
 export function WordCloudGlobeView({ words, onWordClick }: { words: WordCloudWord[]; onWordClick?: (word: string) => void }) {
   const handleCreated = useCallback(({ gl }: { gl: THREE.WebGLRenderer }) => {
-    gl.setClearColor('#0b0e14')
+    gl.setClearColor('#f8fafc')
   }, [])
 
   return (
@@ -137,7 +137,7 @@ export function WordCloudGlobe({
   refreshing,
 }: WordCloudGlobeProps) {
   return (
-    <div className="relative flex h-full min-h-0 flex-col bg-[#0b0e14]">
+    <div className="relative flex h-full min-h-0 flex-col bg-white">
       <div className="absolute right-2 top-2 z-10 flex items-center gap-2">
         {itemCount != null && (
           <span className="text-[10px] text-slate-500">近24h · {itemCount} 条</span>
@@ -147,7 +147,7 @@ export function WordCloudGlobe({
           size="sm"
           onClick={onRefresh}
           disabled={refreshing || loading}
-          className="h-7 w-7 p-0 text-slate-400 hover:text-slate-200"
+          className="h-7 w-7 p-0 text-slate-500 hover:bg-slate-100 hover:text-slate-800"
           title="刷新词云"
         >
           {refreshing || loading ? (
@@ -158,24 +158,24 @@ export function WordCloudGlobe({
         </Button>
       </div>
 
-      <div className="flex-1 min-h-0">
+      <div className="min-h-0 flex-1 bg-slate-50">
         {loading ? (
           <div className="flex h-full items-center justify-center">
-            <Loader2 className="h-6 w-6 animate-spin text-blue-400" />
+            <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
           </div>
         ) : error ? (
-          <div className="flex h-full items-center justify-center px-4 text-center text-[12px] text-red-400">
+          <div className="flex h-full items-center justify-center px-4 text-center text-[12px] text-red-500">
             {error}
           </div>
         ) : words.length === 0 ? (
-          <div className="flex h-full items-center justify-center text-[12px] text-slate-500">
+          <div className="flex h-full items-center justify-center text-[12px] text-slate-400">
             近 24 小时暂无足够文本生成词云
           </div>
         ) : (
           <WordCloudGlobeView words={words} />
         )}
       </div>
-      <p className="shrink-0 border-t border-slate-800 px-3 py-1 text-center text-[10px] text-slate-600">
+      <p className="shrink-0 border-t border-slate-200 px-3 py-1 text-center text-[10px] text-slate-400">
         拖拽旋转 · 滚轮缩放
       </p>
     </div>

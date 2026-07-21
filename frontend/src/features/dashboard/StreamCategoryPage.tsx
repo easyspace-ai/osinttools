@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, Loader2, Search, X } from 'lucide-react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import { ArrowLeft, ChevronDown, Loader2, Search, X } from 'lucide-react'
 import {
   backfillDashboardItems,
   fetchDashboardItems,
+  fetchStreamGroups,
   fetchWordCloud,
   searchDashboardItems,
   type DashboardItem,
@@ -16,9 +17,24 @@ import { WordCloudTreemap } from './WordCloudTreemap'
 const BATCH_LIMIT = 50
 const WORDCLOUD_REFRESH_MS = 30 * 60 * 1000
 
+function decodeRouteParam(value: string): string {
+  let current = value
+  for (let i = 0; i < 2; i++) {
+    try {
+      const decoded = decodeURIComponent(current.replace(/\+/g, ' '))
+      if (decoded === current) break
+      current = decoded
+    } catch {
+      break
+    }
+  }
+  return current
+}
+
 export function StreamCategoryPage() {
   const params = useParams<{ type: string }>()
-  const type = params.type ? decodeURIComponent(params.type) : ''
+  const navigate = useNavigate()
+  const type = params.type ? decodeRouteParam(params.type) : ''
 
   const [items, setItems] = useState<DashboardItem[]>([])
   const [totalCount, setTotalCount] = useState(0)
@@ -29,6 +45,9 @@ export function StreamCategoryPage() {
   const offsetRef = useRef(0)
   const itemsRef = useRef(items)
   itemsRef.current = items
+
+  const [streamTypes, setStreamTypes] = useState<string[]>([])
+  const [streamTypesLoading, setStreamTypesLoading] = useState(true)
 
   const [searchQuery, setSearchQuery] = useState('')
   const [searchActive, setSearchActive] = useState(false)
@@ -161,7 +180,44 @@ export function StreamCategoryPage() {
     setSearchQuery('')
     setSearchActive(false)
     setSearchResults([])
+    setSearchTotal(0)
+    setSearchLoading(false)
   }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    setStreamTypesLoading(true)
+    void fetchStreamGroups()
+      .then((groups) => {
+        if (cancelled) return
+        const types = groups.map((g) => g.type).filter(Boolean)
+        setStreamTypes(types)
+      })
+      .catch((e) => {
+        console.error('Failed to load stream groups:', e)
+        if (!cancelled) setStreamTypes([])
+      })
+      .finally(() => {
+        if (!cancelled) setStreamTypesLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // Category switch: clear search so the new category loads clean
+  useEffect(() => {
+    clearSearch()
+  }, [type, clearSearch])
+
+  const handleCategoryChange = useCallback(
+    (nextType: string) => {
+      if (!nextType || nextType === type) return
+      clearSearch()
+      navigate(`/dashboard/stream/${encodeURIComponent(nextType)}`)
+    },
+    [type, clearSearch, navigate],
+  )
 
   const handleWordClick = useCallback(
     (word: string) => {
@@ -169,6 +225,10 @@ export function StreamCategoryPage() {
     },
     [runSearch],
   )
+
+  // Ensure current type appears in the select even if groups API is slow/empty
+  const categoryOptions =
+    type && !streamTypes.includes(type) ? [type, ...streamTypes] : streamTypes
 
   if (!type) {
     return (
@@ -192,9 +252,22 @@ export function StreamCategoryPage() {
           返回总览
         </Link>
         <div className="min-w-0 flex-1">
-          <h1 className="truncate text-[14px] font-semibold text-slate-900 dark:text-slate-50">
-            {type}
-          </h1>
+          <div className="relative inline-flex max-w-full min-w-[8rem]">
+            <select
+              aria-label="切换信息流分类"
+              value={type}
+              disabled={streamTypesLoading && categoryOptions.length === 0}
+              onChange={(e) => handleCategoryChange(e.target.value)}
+              className="max-w-full cursor-pointer appearance-none truncate rounded-md border border-transparent bg-transparent py-0.5 pl-1.5 pr-6 text-[14px] font-semibold text-slate-900 outline-none hover:border-slate-200 hover:bg-slate-50 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:cursor-wait disabled:opacity-70 dark:text-slate-50 dark:hover:border-slate-700 dark:hover:bg-slate-900 dark:focus:border-blue-500"
+            >
+              {categoryOptions.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-1 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+          </div>
           <p className="text-[11px] text-slate-400">
             {searchActive
               ? searchLoading
@@ -268,8 +341,8 @@ export function StreamCategoryPage() {
             emptyText={searchActive ? '本分类无匹配结果' : '暂无数据'}
           />
         </div>
-        <div className="flex min-h-0 min-w-0 flex-[45] flex-col divide-y divide-slate-200 dark:divide-slate-800">
-          <div className="min-h-0 flex-[55]">
+        <div className="flex min-h-0 min-w-0 flex-[45] flex-col bg-slate-50/60">
+          <div className="min-h-0 flex-[55] border-b border-slate-200 dark:border-slate-800">
             <WordCloudPanel
               words={words}
               loading={wordLoading}

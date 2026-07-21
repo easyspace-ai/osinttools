@@ -46,8 +46,8 @@ export function DashboardOverviewPanel({ artifactRefreshKey: _artifactRefreshKey
   }, [])
 
   return (
-    <div className="flex h-full min-h-0 flex-col divide-y divide-slate-200 dark:divide-slate-800">
-      <div className="min-h-0 flex-[55]">
+    <div className="flex h-full min-h-0 flex-col bg-slate-50/60">
+      <div className="min-h-0 flex-[55] border-b border-slate-200 dark:border-slate-800">
         <WordCloudPanel
           words={words}
           loading={wordLoading}

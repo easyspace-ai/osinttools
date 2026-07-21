@@ -29,68 +29,74 @@ export function WordCloudPanel({
 }: WordCloudPanelProps) {
   const [style, setStyle] = useState<WordCloudStyle>('flat')
 
-  const toolbar = (
-    <div className="absolute right-2 top-2 z-10 flex items-center gap-2">
-      {itemCount != null && (
-        <span className="text-[10px] text-slate-500">近24h · {itemCount} 条</span>
-      )}
-      <div className="flex rounded-md border border-slate-700 bg-slate-900/80 p-0.5">
-        <button
-          type="button"
-          title="平面词云"
-          onClick={() => setStyle('flat')}
-          className={cn(
-            'flex h-6 items-center gap-1 rounded px-2 text-[10px]',
-            style === 'flat' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200',
-          )}
-        >
-          <LayoutGrid className="h-3 w-3" />
-          平面
-        </button>
-        <button
-          type="button"
-          title="球面词云"
-          onClick={() => setStyle('globe')}
-          className={cn(
-            'flex h-6 items-center gap-1 rounded px-2 text-[10px]',
-            style === 'globe' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200',
-          )}
-        >
-          <Globe2 className="h-3 w-3" />
-          球体
-        </button>
-      </div>
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={onRefresh}
-        disabled={refreshing || loading}
-        className="h-7 w-7 p-0 text-slate-400 hover:text-slate-200"
-        title="刷新词云"
-      >
-        {refreshing || loading ? (
-          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-        ) : (
-          <RefreshCw className="h-3.5 w-3.5" />
-        )}
-      </Button>
-    </div>
-  )
-
   return (
-    <div className="relative flex h-full min-h-0 flex-col bg-[#0b0e14]">
-      {toolbar}
-      <div className="flex-1 min-h-0 pt-1">
+    <div className="relative flex h-full min-h-0 flex-col bg-white">
+      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-slate-200 bg-slate-50/80 px-3 py-1.5">
+        <div className="min-w-0">
+          <p className="text-[11px] font-medium text-slate-700">词云</p>
+          <p className="truncate text-[10px] text-slate-400">
+            {itemCount != null ? `近24h · ${itemCount} 条` : '近24小时高频词'}
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-1.5">
+          <div className="flex rounded-md border border-slate-200 bg-white p-0.5 shadow-sm">
+            <button
+              type="button"
+              title="平面词云"
+              onClick={() => setStyle('flat')}
+              className={cn(
+                'flex h-6 items-center gap-1 rounded px-2 text-[10px] transition-colors',
+                style === 'flat'
+                  ? 'bg-blue-600 text-white'
+                  : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800',
+              )}
+            >
+              <LayoutGrid className="h-3 w-3" />
+              平面
+            </button>
+            <button
+              type="button"
+              title="球面词云"
+              onClick={() => setStyle('globe')}
+              className={cn(
+                'flex h-6 items-center gap-1 rounded px-2 text-[10px] transition-colors',
+                style === 'globe'
+                  ? 'bg-blue-600 text-white'
+                  : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800',
+              )}
+            >
+              <Globe2 className="h-3 w-3" />
+              球体
+            </button>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onRefresh}
+            disabled={refreshing || loading}
+            className="h-7 w-7 p-0 text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+            title="刷新词云"
+          >
+            {refreshing || loading ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <RefreshCw className="h-3.5 w-3.5" />
+            )}
+          </Button>
+        </div>
+      </div>
+
+      <div className="min-h-0 flex-1">
         {loading ? (
-          <div className="flex h-full items-center justify-center">
-            <Loader2 className="h-6 w-6 animate-spin text-blue-400" />
+          <div className="flex h-full items-center justify-center bg-slate-50">
+            <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
           </div>
         ) : error ? (
-          <div className="flex h-full items-center justify-center px-4 text-center text-[12px] text-red-400">
+          <div className="flex h-full items-center justify-center bg-slate-50 px-4 text-center text-[12px] text-red-500">
             {error}
           </div>
         ) : words.length === 0 ? (
-          <div className="flex h-full items-center justify-center text-[12px] text-slate-500">
+          <div className="flex h-full items-center justify-center bg-slate-50 text-[12px] text-slate-400">
             近 24 小时暂无足够文本生成词云
           </div>
         ) : style === 'flat' ? (
@@ -99,8 +105,9 @@ export function WordCloudPanel({
           <WordCloudGlobeView words={words} onWordClick={onWordClick} />
         )}
       </div>
-      <div className="shrink-0 border-t border-slate-800 px-3 py-1.5">
-        <div className="mb-1 flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5">
+
+      <div className="shrink-0 border-t border-slate-200 bg-white px-3 py-1.5">
+        <div className="mb-1 flex flex-wrap items-center justify-center gap-x-2.5 gap-y-0.5">
           {WORD_CLOUD_GROUPS.map((group) => (
             <span key={group} className="inline-flex items-center gap-1 text-[9px] text-slate-500">
               <span
@@ -111,8 +118,10 @@ export function WordCloudPanel({
             </span>
           ))}
         </div>
-        <p className="text-center text-[10px] text-slate-600">
-          {style === 'flat' ? '拖拽平移 · 滚轮缩放 · 双击复位 · 点击词条搜索' : '拖拽旋转 · 滚轮缩放 · 点击词条搜索'}
+        <p className="text-center text-[10px] text-slate-400">
+          {style === 'flat'
+            ? '拖拽平移 · 滚轮缩放 · 双击复位 · 点击词条搜索'
+            : '拖拽旋转 · 滚轮缩放 · 点击词条搜索'}
         </p>
       </div>
     </div>

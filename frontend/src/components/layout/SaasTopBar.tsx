@@ -37,7 +37,24 @@ const BREADCRUMB_LABELS: Record<string, string> = {
   kunpeng: "鲲鹏策略",
   "ai-session": "AI 会话",
   ppt: "PPT Studio",
+  dashboard: "看板",
+  stream: "分类",
 };
+
+/** Decode path segments that may be URI-encoded (and occasionally double-encoded). */
+function decodePathSegment(segment: string): string {
+  let current = segment;
+  for (let i = 0; i < 2; i++) {
+    try {
+      const decoded = decodeURIComponent(current.replace(/\+/g, " "));
+      if (decoded === current) break;
+      current = decoded;
+    } catch {
+      break;
+    }
+  }
+  return current;
+}
 
 // Workspace Switcher - COMPACT
 function WorkspaceSwitcher() {
@@ -99,11 +116,12 @@ function Breadcrumb({ pathname }: { pathname: string }) {
   return (
     <div className="hidden sm:flex items-center gap-1.5 text-xs">
       {segments.map((segment, index) => {
-        const label = BREADCRUMB_LABELS[segment] || segment;
+        const decoded = decodePathSegment(segment);
+        const label = BREADCRUMB_LABELS[decoded] || BREADCRUMB_LABELS[segment] || decoded;
         const isLast = index === segments.length - 1;
 
         return (
-          <React.Fragment key={segment}>
+          <React.Fragment key={`${index}-${segment}`}>
             <span
               className={cn(
                 "text-xs font-medium",
@@ -111,6 +129,7 @@ function Breadcrumb({ pathname }: { pathname: string }) {
                   ? "text-gray-900 dark:text-white"
                   : "text-gray-500 dark:text-gray-400"
               )}
+              title={decoded}
             >
               {label}
             </span>

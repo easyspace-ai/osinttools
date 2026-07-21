@@ -1,22 +1,29 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { GROUP_COLORS, type WordCloudWord } from '@/lib/dashboardApi'
+import { usePanZoom } from './usePanZoom'
 
 interface WordCloudFlatProps {
   words: WordCloudWord[]
   onWordClick?: (word: string) => void
 }
 
-const MIN_SCALE = 0.45
-const MAX_SCALE = 3.5
-const DRAG_THRESHOLD = 5
 const FONT_FAMILY = 'Inter, system-ui, -apple-system, sans-serif'
+/** Cap density so first paint stays readable. */
+const MAX_WORDS = 48
+/** Collision padding between word boxes (px). */
+const COLLISION_PAD = 10
+/** Spiral radius step — larger = more spacing, less overlap risk. */
+const SPIRAL_STEP = 7
+/** Arc sampling density along the spiral. */
+const ARC_STEP_PX = 16
+/** Squash Y so packing prefers horizontal spread. */
+const Y_SQUASH = 0.48
 
 type PlacedWord = {
   text: string
   x: number
   y: number
   fontSize: number
-  rotate: 0 | 90
   color: string
   boxW: number
   boxH: number
@@ -24,20 +31,22 @@ type PlacedWord = {
 
 let measureCanvas: HTMLCanvasElement | null = null
 
-function measureText(text: string, fontSize: number, rotate: 0 | 90): { boxW: number; boxH: number } {
+function measureText(text: string, fontSize: number): { boxW: number; boxH: number } {
   if (!measureCanvas) measureCanvas = document.createElement('canvas')
   const ctx = measureCanvas.getContext('2d')
+  // Button padding (px-1.5 py-0.5) baked into box for collision
+  const padX = 12
+  const padY = 6
   if (!ctx) {
-    const approxW = text.length * fontSize * 0.62
-    return rotate === 90
-      ? { boxW: fontSize * 1.15, boxH: approxW }
-      : { boxW: approxW, boxH: fontSize * 1.15 }
+    const approxW = text.length * fontSize * 0.62 + padX
+    return { boxW: approxW, boxH: fontSize * 1.2 + padY }
   }
   ctx.font = `600 ${fontSize}px ${FONT_FAMILY}`
   const metrics = ctx.measureText(text)
-  const textW = metrics.width + fontSize * 0.35
-  const textH = fontSize * 1.25
-  return rotate === 90 ? { boxW: textH, boxH: textW } : { boxW: textW, boxH: textH }
+  return {
+    boxW: metrics.width + padX,
+    boxH: fontSize * 1.2 + padY,
+  }
 }
 
 function boxesOverlap(
@@ -49,7 +58,7 @@ function boxesOverlap(
   by: number,
   bw: number,
   bh: number,
-  pad = 3,
+  pad: number,
 ): boolean {
   return !(
     ax + aw / 2 + pad < bx - bw / 2 ||
@@ -62,46 +71,45 @@ function boxesOverlap(
 function layoutWords(words: WordCloudWord[], width: number, height: number): PlacedWord[] {
   if (words.length === 0 || width <= 0 || height <= 0) return []
 
-  const maxW = Math.max(...words.map((x) => x.weight))
-  const minW = Math.min(...words.map((x) => x.weight))
+  const sorted = [...words].sort((a, b) => b.weight - a.weight).slice(0, MAX_WORDS)
+  const maxW = Math.max(...sorted.map((x) => x.weight))
+  const minW = Math.min(...sorted.map((x) => x.weight))
   const cx = width / 2
   const cy = height / 2
   const placed: PlacedWord[] = []
-
-  const sorted = [...words].sort((a, b) => b.weight - a.weight)
+  const margin = 8
 
   for (let i = 0; i < sorted.length; i++) {
     const item = sorted[i]
     const t = maxW > minW ? (item.weight - minW) / (maxW - minW) : 1
-    const fontSize = Math.round(11 + t * 36)
-    const rotate: 0 | 90 = i % 5 === 2 || i % 7 === 0 ? 90 : 0
-    const { boxW, boxH } = measureText(item.text, fontSize, rotate)
+    // Slightly restrained scale keeps dense clouds readable at zoom=1
+    const fontSize = Math.round(11 + t * 26)
+    const { boxW, boxH } = measureText(item.text, fontSize)
     const color = GROUP_COLORS[item.group] || GROUP_COLORS.general
 
     let found = false
     let x = cx
     let y = cy
 
-    // Spiral search from center
     const maxR = Math.sqrt(width * width + height * height) / 2
-    for (let r = 0; r < maxR && !found; r += 4) {
-      const steps = r === 0 ? 1 : Math.max(8, Math.ceil((2 * Math.PI * r) / 10))
+    for (let r = 0; r < maxR && !found; r += SPIRAL_STEP) {
+      const steps = r === 0 ? 1 : Math.max(10, Math.ceil((2 * Math.PI * r) / ARC_STEP_PX))
       for (let s = 0; s < steps; s++) {
         const theta = (s / steps) * Math.PI * 2
         x = cx + Math.cos(theta) * r
-        y = cy + Math.sin(theta) * r * 0.78
+        y = cy + Math.sin(theta) * r * Y_SQUASH
 
         if (
-          x - boxW / 2 < 4 ||
-          y - boxH / 2 < 4 ||
-          x + boxW / 2 > width - 4 ||
-          y + boxH / 2 > height - 4
+          x - boxW / 2 < margin ||
+          y - boxH / 2 < margin ||
+          x + boxW / 2 > width - margin ||
+          y + boxH / 2 > height - margin
         ) {
           continue
         }
 
         const hits = placed.some((p) =>
-          boxesOverlap(x, y, boxW, boxH, p.x, p.y, p.boxW, p.boxH),
+          boxesOverlap(x, y, boxW, boxH, p.x, p.y, p.boxW, p.boxH, COLLISION_PAD),
         )
         if (!hits) {
           found = true
@@ -110,13 +118,10 @@ function layoutWords(words: WordCloudWord[], width: number, height: number): Pla
       }
     }
 
-    if (!found) {
-      // Fallback: place near edge with slight offset
-      x = 20 + (i % 8) * (width / 9)
-      y = 20 + Math.floor(i / 8) * 28
-    }
+    // Skip unplaceable words rather than stacking them in an overlapping grid
+    if (!found) continue
 
-    placed.push({ text: item.text, x, y, fontSize, rotate, color, boxW, boxH })
+    placed.push({ text: item.text, x, y, fontSize, color, boxW, boxH })
   }
 
   return placed
@@ -125,27 +130,16 @@ function layoutWords(words: WordCloudWord[], width: number, height: number): Pla
 export function WordCloudFlat({ words, onWordClick }: WordCloudFlatProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [size, setSize] = useState({ w: 0, h: 0 })
-  const [pan, setPan] = useState({ x: 0, y: 0 })
-  const [scale, setScale] = useState(1)
-  const [dragging, setDragging] = useState(false)
-  const viewRef = useRef({ pan: { x: 0, y: 0 }, scale: 1 })
-  const dragRef = useRef<{
-    active: boolean
-    moved: boolean
-    startX: number
-    startY: number
-    originX: number
-    originY: number
-  }>({
-    active: false,
-    moved: false,
-    startX: 0,
-    startY: 0,
-    originX: 0,
-    originY: 0,
-  })
-  // Suppress button click after a drag gesture
-  const suppressClickRef = useRef(false)
+  const {
+    pan,
+    scale,
+    cursor,
+    onPointerDown,
+    onPointerMove,
+    onPointerUp,
+    resetView,
+    shouldSuppressClick,
+  } = usePanZoom(containerRef, words)
 
   const placed = useMemo(() => layoutWords(words, size.w, size.h), [words, size.w, size.h])
 
@@ -162,99 +156,18 @@ export function WordCloudFlat({ words, onWordClick }: WordCloudFlatProps) {
     return () => ro.disconnect()
   }, [])
 
-  useEffect(() => {
-    viewRef.current = { pan: { x: 0, y: 0 }, scale: 1 }
-    setPan({ x: 0, y: 0 })
-    setScale(1)
-  }, [words])
-
-  useEffect(() => {
-    viewRef.current = { pan, scale }
-  }, [pan, scale])
-
-  useEffect(() => {
-    const container = containerRef.current
-    if (!container) return
-
-    const onWheel = (e: WheelEvent) => {
-      e.preventDefault()
-      const rect = container.getBoundingClientRect()
-      const mx = e.clientX - rect.left
-      const my = e.clientY - rect.top
-      const { pan: p, scale: s } = viewRef.current
-      const factor = Math.exp(-e.deltaY * 0.002)
-      const nextScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, s * factor))
-      const wx = (mx - p.x) / s
-      const wy = (my - p.y) / s
-      const nextPan = {
-        x: mx - wx * nextScale,
-        y: my - wy * nextScale,
-      }
-      viewRef.current = { pan: nextPan, scale: nextScale }
-      setPan(nextPan)
-      setScale(nextScale)
-    }
-
-    container.addEventListener('wheel', onWheel, { passive: false })
-    return () => container.removeEventListener('wheel', onWheel)
-  }, [])
-
-  const onPointerDown = useCallback((e: React.PointerEvent) => {
-    if (e.button !== 0) return
-    const { pan: p } = viewRef.current
-    dragRef.current = {
-      active: true,
-      moved: false,
-      startX: e.clientX,
-      startY: e.clientY,
-      originX: p.x,
-      originY: p.y,
-    }
-    suppressClickRef.current = false
-    setDragging(true)
-    // Intentionally no setPointerCapture — keeps word button clicks working
-  }, [])
-
-  const onPointerMove = useCallback((e: React.PointerEvent) => {
-    if (!dragRef.current.active) return
-    const dx = e.clientX - dragRef.current.startX
-    const dy = e.clientY - dragRef.current.startY
-    if (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD) {
-      dragRef.current.moved = true
-      suppressClickRef.current = true
-    }
-    if (!dragRef.current.moved) return
-    const nextPan = {
-      x: dragRef.current.originX + dx,
-      y: dragRef.current.originY + dy,
-    }
-    viewRef.current = { ...viewRef.current, pan: nextPan }
-    setPan(nextPan)
-  }, [])
-
-  const onPointerUp = useCallback(() => {
-    dragRef.current.active = false
-    setDragging(false)
-  }, [])
-
-  const resetView = useCallback(() => {
-    viewRef.current = { pan: { x: 0, y: 0 }, scale: 1 }
-    setPan({ x: 0, y: 0 })
-    setScale(1)
-  }, [])
-
   const handleWordClick = useCallback(
     (text: string) => {
-      if (suppressClickRef.current || dragRef.current.moved) return
+      if (shouldSuppressClick()) return
       onWordClick?.(text)
     },
-    [onWordClick],
+    [onWordClick, shouldSuppressClick],
   )
 
   return (
     <div
       ref={containerRef}
-      className="relative h-full w-full touch-none select-none overflow-hidden bg-[#0b0e14]"
+      className="relative h-full w-full touch-none select-none overflow-hidden bg-slate-50"
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
@@ -262,7 +175,7 @@ export function WordCloudFlat({ words, onWordClick }: WordCloudFlatProps) {
       onPointerLeave={onPointerUp}
       onDoubleClick={resetView}
       title="拖拽平移 · 滚轮缩放 · 双击复位"
-      style={{ cursor: dragging && dragRef.current.moved ? 'grabbing' : 'grab' }}
+      style={{ cursor }}
     >
       <div
         className="relative h-full w-full"
@@ -276,11 +189,11 @@ export function WordCloudFlat({ words, onWordClick }: WordCloudFlatProps) {
             key={word.text}
             type="button"
             onClick={() => handleWordClick(word.text)}
-            className="absolute rounded px-1.5 py-0.5 font-semibold transition-colors hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-blue-400"
+            className="absolute rounded px-1.5 py-0.5 font-semibold transition-colors hover:bg-slate-200/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-blue-500"
             style={{
               left: word.x,
               top: word.y,
-              transform: `translate(-50%, -50%) rotate(${word.rotate}deg)`,
+              transform: 'translate(-50%, -50%)',
               fontSize: word.fontSize,
               fontFamily: FONT_FAMILY,
               color: word.color,
