@@ -53,6 +53,8 @@ type Config struct {
 	SkillsDefaultsDir string
 	// SkillsCustomDir 超级管理员覆盖/新增技能 JSON（见 data/skills/custom，合并时优先于 defaults）
 	SkillsCustomDir string
+	// WordcloudStopwordsPath 词云停用词 JSON（见 data/dashboard/wordcloud-stopwords.json）
+	WordcloudStopwordsPath string
 
 	// DeepSeek 技能编写助手（OpenAI 兼容 /v1/chat/completions）
 	DeepSeek DeepSeekConfig
@@ -189,6 +191,7 @@ func Load() *Config {
 		DashboardPushMinItems:      getEnvIntDefault("DASHBOARD_PUSH_MIN_ITEMS", 5),
 		SkillsDefaultsDir:          ResolveSkillsDefaultsDir(getEnv("SKILLS_DEFAULTS_DIR")),
 		SkillsCustomDir:            ResolveSkillsCustomDir(getEnv("SKILLS_CUSTOM_DIR")),
+		WordcloudStopwordsPath:     ResolveWordcloudStopwordsPath(getEnv("WORDCLOUD_STOPWORDS_PATH")),
 		DeepSeek: DeepSeekConfig{
 			APIKey:                  getEnv("DEEPSEEK_API_KEY"),
 			BaseURL:                 firstNonEmpty(getEnv("DEEPSEEK_BASE_URL"), "https://api.deepseek.com"),

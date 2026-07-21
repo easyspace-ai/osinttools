@@ -218,13 +218,15 @@ func (h *DashboardHandler) ConfigGET(c *gin.Context) {
 }
 
 // WordCloudGET returns word frequency data for the last 24 hours of information flow.
+// Query: type (optional stream category), refresh=1 to bypass cache and reload stopwords.
 func (h *DashboardHandler) WordCloudGET(c *gin.Context) {
 	if h.wordCloud == nil {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "word cloud not configured"})
 		return
 	}
 	refresh := c.Query("refresh") == "1" || c.Query("refresh") == "true"
-	result, err := h.wordCloud.Generate(c.Request.Context(), refresh)
+	itemType := strings.TrimSpace(c.Query("type"))
+	result, err := h.wordCloud.Generate(c.Request.Context(), refresh, itemType)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

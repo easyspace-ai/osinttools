@@ -270,7 +270,7 @@ func Wire(ctx context.Context, cfg *config.Config, db *persistence.DB) (*WireRes
 
 	// Dashboard routes
 	dashboardRepo := persistence.NewDashboardRepository(db)
-	wordCloudSvc := dashboard.NewWordCloudService(xstreamRepo)
+	wordCloudSvc := dashboard.NewWordCloudService(xstreamRepo, cfg.WordcloudStopwordsPath)
 	artifactSyncer := artifact.NewSyncer(resourceRepo, rawSDKClient)
 
 	dashboardHandler := NewDashboardHandler(
@@ -288,6 +288,12 @@ func Wire(ctx context.Context, cfg *config.Config, db *persistence.DB) (*WireRes
 	dashboardGroup.Use(AuthMiddleware(authSvc))
 	dashboardHandler.RegisterRoutes(dashboardGroup)
 	slog.Info("[Router] dashboard routes registered")
+
+	adminWordCloudHandler := NewAdminWordCloudHandler(wordCloudSvc)
+	adminWordCloudHandler.RegisterRoutes(adminGroup)
+	slog.Info("[Router] admin wordcloud stopwords routes registered",
+		slog.String("path", cfg.WordcloudStopwordsPath),
+	)
 
 	studioGroup := api.Group("/studio")
 	studioGroup.Use(AuthMiddleware(authSvc))

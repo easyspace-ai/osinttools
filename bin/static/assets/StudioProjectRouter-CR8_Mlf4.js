@@ -1,13 +1,13 @@
-import { j as t } from "./three-Bpr2UrKt.js";
+import { j as t } from "./three-6xqd9jvE.js";
 import { a as r } from "./monaco-BqKDZJPO.js";
-import { q as de, a as Se, R as ve, U as ke, L as b, W as le, M as Ee, X as $e, Y as Ce, c as Le, Z as _e } from "./main-DrzwT8HI.js";
-import { p as ze } from "./themePresets-r4jvBvYV.js";
-import { o as f, a as ue, i as W } from "./routes-CFr-pXpC.js";
-import { S as Me, P as Ie } from "./PptxgenjsEditor-C54BLhHJ.js";
-import "./charts-DMPjqeFU.js";
+import { q as de, a as Se, R as ve, U as ke, L as b, W as le, M as Ee, X as $e, Y as Ce, c as Le, Z as _e } from "./main-Bcy9l3UX.js";
+import { p as ze } from "./themePresets-CR0tiUKu.js";
+import { o as f, a as ue, i as W } from "./routes-Cus_GjmS.js";
+import { S as Me, P as Ie } from "./PptxgenjsEditor-B6wUNQea.js";
+import "./charts-S2HjfYzV.js";
 import "./routes-UgFNxPGD.js";
-import "./pptx-worker-BYWhLrI0.js";
-import "./PipelineProgressPanel-035RfkUF.js";
+import "./pptx-worker-Co20o6hA.js";
+import "./PipelineProgressPanel-Du2YVnp0.js";
 const S = /* @__PURE__ */ new Map(), Re = 8;
 function Te(s) {
   return s.pageId || s.id || `page-${s.pageNumber}`;

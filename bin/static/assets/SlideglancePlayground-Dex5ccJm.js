@@ -1,7 +1,7 @@
-import { j as n } from "./three-Bpr2UrKt.js";
+import { j as n } from "./three-6xqd9jvE.js";
 import { a as l } from "./monaco-BqKDZJPO.js";
-import { c as B, W as U, P as q } from "./pptx-worker-BYWhLrI0.js";
-import "./charts-DMPjqeFU.js";
+import { c as B, W as U, P as q } from "./pptx-worker-Co20o6hA.js";
+import "./charts-S2HjfYzV.js";
 const I = [{ label: "Pitch \xB7 \u6DF1\u8272\u6E10\u53D8", url: "/slideglance/samples/01-pitch.pptx" }, { label: "Editorial \xB7 A4", url: "/slideglance/samples/02-editorial.pptx" }, { label: "Tech spec", url: "/slideglance/samples/03-tech-spec.pptx" }, { label: "Workshop", url: "/slideglance/samples/04-workshop.pptx" }];
 function V() {
   const [i, b] = l.useState(null), [f, L] = l.useState(null), [W, g] = l.useState(0), [x, E] = l.useState(0), [S, p] = l.useState(null), [k, v] = l.useState(null), [c, m] = l.useState("idle"), [R, s] = l.useState("\u4E0A\u4F20 .pptx \u6216\u9009\u62E9\u793A\u4F8B\uFF0C\u5728\u6D4F\u89C8\u5668\u672C\u5730\u89E3\u6790\uFF08\u4E0D\u4E0A\u4F20\u670D\u52A1\u5668\uFF09"), P = l.useRef(null), h = l.useRef(null), d = l.useRef(0);

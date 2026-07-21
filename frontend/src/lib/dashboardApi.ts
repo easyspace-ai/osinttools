@@ -268,9 +268,15 @@ export async function fetchDashboardConfig(): Promise<DashboardConfig> {
   return response.json()
 }
 
-export async function fetchWordCloud(refresh = false): Promise<WordCloudResponse> {
-  const params = refresh ? '?refresh=1' : ''
-  const response = await fetch(`${DASHBOARD_V1}/wordcloud${params}`, authFetchInit({ headers: authHeaders() }))
+export async function fetchWordCloud(refresh = false, type?: string): Promise<WordCloudResponse> {
+  const params = new URLSearchParams()
+  if (refresh) params.set('refresh', '1')
+  if (type) params.set('type', type)
+  const qs = params.toString()
+  const response = await fetch(
+    `${DASHBOARD_V1}/wordcloud${qs ? `?${qs}` : ''}`,
+    authFetchInit({ headers: authHeaders() }),
+  )
   if (!response.ok) {
     const err = await response.json().catch(() => ({}))
     throw new Error((err as { error?: string }).error || 'Failed to fetch word cloud')

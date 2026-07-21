@@ -120,10 +120,12 @@ func (r *XStreamRepository) ListSincePubDate(pubDateGTE string, minRemoteID int6
 }
 
 // ListContentSince24h returns content from items with pub_date within the last 24 hours (Asia/Shanghai).
-func (r *XStreamRepository) ListContentSince24h(maxRows int) ([]string, error) {
+// itemType filters by stream type when non-empty; empty means all types.
+func (r *XStreamRepository) ListContentSince24h(maxRows int, itemType string) ([]string, error) {
 	if maxRows <= 0 {
 		maxRows = 5000
 	}
+	itemType = strings.TrimSpace(itemType)
 	loc, err := time.LoadLocation("Asia/Shanghai")
 	if err != nil {
 		loc = time.FixedZone("CST", 8*3600)
@@ -131,14 +133,22 @@ func (r *XStreamRepository) ListContentSince24h(maxRows int) ([]string, error) {
 	sinceStr := time.Now().In(loc).Add(-24 * time.Hour).Format("2006-01-02 15:04:05")
 
 	var items []XStreamItemModel
-	q := r.db.DB.Where("pub_date >= ?", sinceStr).Order("pub_date DESC").Limit(maxRows)
+	q := r.db.DB.Where("pub_date >= ?", sinceStr)
+	if itemType != "" {
+		q = q.Where("type = ?", itemType)
+	}
+	q = q.Order("pub_date DESC").Limit(maxRows)
 	if err := q.Find(&items).Error; err != nil {
 		return nil, err
 	}
 
 	// 若严格 24h 无数据（时区/入库延迟），回退为最近一批推文
 	if len(items) == 0 {
-		if err := r.db.DB.Order("pub_date DESC").Limit(maxRows).Find(&items).Error; err != nil {
+		q2 := r.db.DB.Order("pub_date DESC").Limit(maxRows)
+		if itemType != "" {
+			q2 = q2.Where("type = ?", itemType)
+		}
+		if err := q2.Find(&items).Error; err != nil {
 			return nil, err
 		}
 	}

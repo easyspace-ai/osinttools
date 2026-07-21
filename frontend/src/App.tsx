@@ -21,6 +21,7 @@ import { KunpengScanner } from "./components/picker/pages/KunpengScanner/Kunpeng
 import { PolymarketRouteLayout } from "./features/polymarket/PolymarketRouteLayout";
 import { XStreamRouteLayout } from "./features/polymarket/XStreamRouteLayout";
 import { DashboardRouteLayout } from "./features/dashboard/DashboardRouteLayout";
+import { StreamCategoryPage } from "./features/dashboard/StreamCategoryPage";
 import { StudioRouteShell } from "./features/studio/StudioRouteShell";
 import { PpthtmlRouteShell } from "./features/ppthtml/PpthtmlRouteShell";
 import { PptxgenjsRouteShell } from "./features/pptxgenjs/PptxgenjsRouteShell";
@@ -199,6 +200,14 @@ function AppShell() {
                     element={
                       <RequireNavPermission permission={NAV_PERMISSION_KEYS.dashboard}>
                         <DashboardRouteLayout />
+                      </RequireNavPermission>
+                    }
+                  />
+                  <Route
+                    path="/dashboard/stream/:type"
+                    element={
+                      <RequireNavPermission permission={NAV_PERMISSION_KEYS.dashboard}>
+                        <StreamCategoryPage />
                       </RequireNavPermission>
                     }
                   />

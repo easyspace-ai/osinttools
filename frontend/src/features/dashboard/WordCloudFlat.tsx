@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import WordCloud from 'wordcloud'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { GROUP_COLORS, type WordCloudWord } from '@/lib/dashboardApi'
 
 interface WordCloudFlatProps {
@@ -9,100 +8,159 @@ interface WordCloudFlatProps {
 
 const MIN_SCALE = 0.45
 const MAX_SCALE = 3.5
+const DRAG_THRESHOLD = 5
+const FONT_FAMILY = 'Inter, system-ui, -apple-system, sans-serif'
+
+type PlacedWord = {
+  text: string
+  x: number
+  y: number
+  fontSize: number
+  rotate: 0 | 90
+  color: string
+  boxW: number
+  boxH: number
+}
+
+let measureCanvas: HTMLCanvasElement | null = null
+
+function measureText(text: string, fontSize: number, rotate: 0 | 90): { boxW: number; boxH: number } {
+  if (!measureCanvas) measureCanvas = document.createElement('canvas')
+  const ctx = measureCanvas.getContext('2d')
+  if (!ctx) {
+    const approxW = text.length * fontSize * 0.62
+    return rotate === 90
+      ? { boxW: fontSize * 1.15, boxH: approxW }
+      : { boxW: approxW, boxH: fontSize * 1.15 }
+  }
+  ctx.font = `600 ${fontSize}px ${FONT_FAMILY}`
+  const metrics = ctx.measureText(text)
+  const textW = metrics.width + fontSize * 0.35
+  const textH = fontSize * 1.25
+  return rotate === 90 ? { boxW: textH, boxH: textW } : { boxW: textW, boxH: textH }
+}
+
+function boxesOverlap(
+  ax: number,
+  ay: number,
+  aw: number,
+  ah: number,
+  bx: number,
+  by: number,
+  bw: number,
+  bh: number,
+  pad = 3,
+): boolean {
+  return !(
+    ax + aw / 2 + pad < bx - bw / 2 ||
+    ax - aw / 2 - pad > bx + bw / 2 ||
+    ay + ah / 2 + pad < by - bh / 2 ||
+    ay - ah / 2 - pad > by + bh / 2
+  )
+}
+
+function layoutWords(words: WordCloudWord[], width: number, height: number): PlacedWord[] {
+  if (words.length === 0 || width <= 0 || height <= 0) return []
+
+  const maxW = Math.max(...words.map((x) => x.weight))
+  const minW = Math.min(...words.map((x) => x.weight))
+  const cx = width / 2
+  const cy = height / 2
+  const placed: PlacedWord[] = []
+
+  const sorted = [...words].sort((a, b) => b.weight - a.weight)
+
+  for (let i = 0; i < sorted.length; i++) {
+    const item = sorted[i]
+    const t = maxW > minW ? (item.weight - minW) / (maxW - minW) : 1
+    const fontSize = Math.round(11 + t * 36)
+    const rotate: 0 | 90 = i % 5 === 2 || i % 7 === 0 ? 90 : 0
+    const { boxW, boxH } = measureText(item.text, fontSize, rotate)
+    const color = GROUP_COLORS[item.group] || GROUP_COLORS.general
+
+    let found = false
+    let x = cx
+    let y = cy
+
+    // Spiral search from center
+    const maxR = Math.sqrt(width * width + height * height) / 2
+    for (let r = 0; r < maxR && !found; r += 4) {
+      const steps = r === 0 ? 1 : Math.max(8, Math.ceil((2 * Math.PI * r) / 10))
+      for (let s = 0; s < steps; s++) {
+        const theta = (s / steps) * Math.PI * 2
+        x = cx + Math.cos(theta) * r
+        y = cy + Math.sin(theta) * r * 0.78
+
+        if (
+          x - boxW / 2 < 4 ||
+          y - boxH / 2 < 4 ||
+          x + boxW / 2 > width - 4 ||
+          y + boxH / 2 > height - 4
+        ) {
+          continue
+        }
+
+        const hits = placed.some((p) =>
+          boxesOverlap(x, y, boxW, boxH, p.x, p.y, p.boxW, p.boxH),
+        )
+        if (!hits) {
+          found = true
+          break
+        }
+      }
+    }
+
+    if (!found) {
+      // Fallback: place near edge with slight offset
+      x = 20 + (i % 8) * (width / 9)
+      y = 20 + Math.floor(i / 8) * 28
+    }
+
+    placed.push({ text: item.text, x, y, fontSize, rotate, color, boxW, boxH })
+  }
+
+  return placed
+}
 
 export function WordCloudFlat({ words, onWordClick }: WordCloudFlatProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const [size, setSize] = useState({ w: 0, h: 0 })
   const [pan, setPan] = useState({ x: 0, y: 0 })
   const [scale, setScale] = useState(1)
   const [dragging, setDragging] = useState(false)
   const viewRef = useRef({ pan: { x: 0, y: 0 }, scale: 1 })
-  const dragRef = useRef<{ active: boolean; startX: number; startY: number; originX: number; originY: number }>({
+  const dragRef = useRef<{
+    active: boolean
+    moved: boolean
+    startX: number
+    startY: number
+    originX: number
+    originY: number
+  }>({
     active: false,
+    moved: false,
     startX: 0,
     startY: 0,
     originX: 0,
     originY: 0,
   })
-  const clickStartRef = useRef<{ x: number; y: number; time: number } | null>(null)
+  // Suppress button click after a drag gesture
+  const suppressClickRef = useRef(false)
 
-  const clickHandlerRef = useRef(onWordClick)
-  clickHandlerRef.current = onWordClick
-
-  const renderCloud = useCallback(() => {
-    const canvas = canvasRef.current
-    const container = containerRef.current
-    if (!canvas || !container || words.length === 0) return
-
-    const dpr = window.devicePixelRatio || 1
-    const w = container.clientWidth
-    const h = container.clientHeight
-    if (w <= 0 || h <= 0) return
-
-    const cw = Math.floor(w * dpr)
-    const ch = Math.floor(h * dpr)
-    canvas.width = cw
-    canvas.height = ch
-    canvas.style.width = `${w}px`
-    canvas.style.height = `${h}px`
-
-    const maxW = Math.max(...words.map((x) => x.weight))
-    const minW = Math.min(...words.map((x) => x.weight))
-    const list: [string, number][] = words.map((item) => {
-      const t = maxW > minW ? (item.weight - minW) / (maxW - minW) : 1
-      return [item.text, 12 + t * 42]
-    })
-
-    // Build a lookup map from text -> group color
-    const colorMap = new Map<string, string>()
-    words.forEach((w) => {
-      colorMap.set(w.text, GROUP_COLORS[w.group] || GROUP_COLORS.general)
-    })
-
-    WordCloud(canvas, {
-      list,
-      gridSize: Math.max(4, Math.round(6 * dpr)),
-      weightFactor: 1,
-      fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
-      fontWeight: '600',
-      color: (word) => {
-        return colorMap.get(word as string) || GROUP_COLORS.general
-      },
-      rotateRatio: 0.55,
-      rotationSteps: 3,
-      backgroundColor: '#0b0e14',
-      shrinkToFit: true,
-      drawOutOfBound: false,
-      minSize: 10,
-      origin: [cw / 2, ch / 2],
-      shape: 'circle',
-      ellipticity: 0.72,
-      click: (item) => {
-        if (item && item[0] && clickHandlerRef.current) {
-          clickHandlerRef.current(item[0])
-        }
-      },
-    })
-  }, [words])
-
-  useEffect(() => {
-    renderCloud()
-    return () => {
-      WordCloud.stop()
-    }
-  }, [renderCloud])
+  const placed = useMemo(() => layoutWords(words, size.w, size.h), [words, size.w, size.h])
 
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
-
-    const ro = new ResizeObserver(() => {
-      WordCloud.stop()
-      renderCloud()
+    const ro = new ResizeObserver((entries) => {
+      const entry = entries[0]
+      if (!entry) return
+      const { width, height } = entry.contentRect
+      setSize({ w: Math.floor(width), h: Math.floor(height) })
     })
     ro.observe(container)
     return () => ro.disconnect()
-  }, [renderCloud])
+  }, [])
 
   useEffect(() => {
     viewRef.current = { pan: { x: 0, y: 0 }, scale: 1 }
@@ -141,93 +199,100 @@ export function WordCloudFlat({ words, onWordClick }: WordCloudFlatProps) {
     return () => container.removeEventListener('wheel', onWheel)
   }, [])
 
-  const onPointerDown = (e: React.PointerEvent) => {
+  const onPointerDown = useCallback((e: React.PointerEvent) => {
     if (e.button !== 0) return
     const { pan: p } = viewRef.current
     dragRef.current = {
       active: true,
+      moved: false,
       startX: e.clientX,
       startY: e.clientY,
       originX: p.x,
       originY: p.y,
     }
-    clickStartRef.current = { x: e.clientX, y: e.clientY, time: Date.now() }
+    suppressClickRef.current = false
     setDragging(true)
-    e.currentTarget.setPointerCapture(e.pointerId)
-  }
+    // Intentionally no setPointerCapture — keeps word button clicks working
+  }, [])
 
-  const onPointerMove = (e: React.PointerEvent) => {
+  const onPointerMove = useCallback((e: React.PointerEvent) => {
     if (!dragRef.current.active) return
     const dx = e.clientX - dragRef.current.startX
     const dy = e.clientY - dragRef.current.startY
-    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
-      clickStartRef.current = null
+    if (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD) {
+      dragRef.current.moved = true
+      suppressClickRef.current = true
     }
+    if (!dragRef.current.moved) return
     const nextPan = {
       x: dragRef.current.originX + dx,
       y: dragRef.current.originY + dy,
     }
     viewRef.current = { ...viewRef.current, pan: nextPan }
     setPan(nextPan)
-  }
+  }, [])
 
-  const onPointerUp = (e: React.PointerEvent) => {
+  const onPointerUp = useCallback(() => {
     dragRef.current.active = false
     setDragging(false)
-    e.currentTarget.releasePointerCapture(e.pointerId)
+  }, [])
 
-    const clickInfo = clickStartRef.current
-    if (clickInfo && onWordClick) {
-      const dx = e.clientX - clickInfo.x
-      const dy = e.clientY - clickInfo.y
-      const dt = Date.now() - clickInfo.time
-      if (Math.abs(dx) < 5 && Math.abs(dy) < 5 && dt < 300) {
-        // Detect which word was clicked via canvas
-        const canvas = canvasRef.current
-        if (canvas) {
-          const rect = canvas.getBoundingClientRect()
-          const x = (e.clientX - rect.left) * (canvas.width / rect.width)
-          const y = (e.clientY - rect.top) * (canvas.height / rect.height)
-          const ctx = canvas.getContext('2d')
-          if (ctx) {
-            // Check pixel alpha to determine if a word was clicked
-            const pixel = ctx.getImageData(x, y, 1, 1).data
-            if (pixel[3] > 0) {
-              // Find nearest word center; for now use word-cloud built-in click
-            }
-          }
-        }
-      }
-    }
-    clickStartRef.current = null
-  }
-
-  const resetView = () => {
+  const resetView = useCallback(() => {
     viewRef.current = { pan: { x: 0, y: 0 }, scale: 1 }
     setPan({ x: 0, y: 0 })
     setScale(1)
-  }
+  }, [])
+
+  const handleWordClick = useCallback(
+    (text: string) => {
+      if (suppressClickRef.current || dragRef.current.moved) return
+      onWordClick?.(text)
+    },
+    [onWordClick],
+  )
 
   return (
     <div
       ref={containerRef}
-      className="relative h-full w-full touch-none select-none overflow-hidden"
+      className="relative h-full w-full touch-none select-none overflow-hidden bg-[#0b0e14]"
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
+      onPointerLeave={onPointerUp}
       onDoubleClick={resetView}
       title="拖拽平移 · 滚轮缩放 · 双击复位"
-      style={{ cursor: dragging ? 'grabbing' : 'grab' }}
+      style={{ cursor: dragging && dragRef.current.moved ? 'grabbing' : 'grab' }}
     >
       <div
-        className="h-full w-full"
+        className="relative h-full w-full"
         style={{
           transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})`,
           transformOrigin: '0 0',
         }}
       >
-        <canvas ref={canvasRef} className="block h-full w-full" />
+        {placed.map((word) => (
+          <button
+            key={word.text}
+            type="button"
+            onClick={() => handleWordClick(word.text)}
+            className="absolute rounded px-1.5 py-0.5 font-semibold transition-colors hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-blue-400"
+            style={{
+              left: word.x,
+              top: word.y,
+              transform: `translate(-50%, -50%) rotate(${word.rotate}deg)`,
+              fontSize: word.fontSize,
+              fontFamily: FONT_FAMILY,
+              color: word.color,
+              lineHeight: 1.2,
+              whiteSpace: 'nowrap',
+              cursor: 'pointer',
+            }}
+            title={word.text}
+          >
+            {word.text}
+          </button>
+        ))}
       </div>
     </div>
   )

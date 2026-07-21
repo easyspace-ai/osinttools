@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Loader2, RefreshCw, ExternalLink, Zap, Search, X, Link2 } from 'lucide-react'
 import { WorkbenchLayout } from '@/components/layout/WorkbenchLayout'
 import { useWorkbenchChrome } from '@/components/layout/WorkbenchChromeContext'
@@ -17,7 +18,6 @@ import { cn } from '@/lib/utils'
 import { isAdmin } from '@/lib/authApi'
 import { useOsintUser } from '@/osint/auth'
 import { DashboardOverviewPanel } from './DashboardOverviewPanel'
-import { StreamCategoryModal } from './StreamCategoryModal'
 
 const BATCH_LIMIT = 50
 const STREAM_SYNC_INTERVAL_MS = 10 * 60 * 1000
@@ -254,6 +254,7 @@ function StreamColumn({
 }
 
 export function DashboardRouteLayout() {
+  const navigate = useNavigate()
   const { leftCollapsed } = useWorkbenchChrome()
   const user = useOsintUser()
   const showAdminActions = isAdmin(user)
@@ -305,8 +306,6 @@ export function DashboardRouteLayout() {
   const [linkResults, setLinkResults] = useState<DashboardItem[]>([])
   const [linkTotal, setLinkTotal] = useState(0)
   const [linkLoading, setLinkLoading] = useState(false)
-
-  const [categoryModalType, setCategoryModalType] = useState<string | null>(null)
 
   const filterMode: 'search' | 'link' | false = linkFilter
     ? 'link'
@@ -639,7 +638,7 @@ export function DashboardRouteLayout() {
           </div>
           {showAdminActions ? (
             <div className="flex items-center gap-1">
-              <Button
+              {/* <Button
                 variant="ghost"
                 size="sm"
                 onClick={handleTriggerAggregator}
@@ -667,7 +666,7 @@ export function DashboardRouteLayout() {
                 ) : (
                   <RefreshCw className="h-3 w-3" />
                 )}
-              </Button>
+              </Button> */}
               <Button
                 variant="ghost"
                 size="sm"
@@ -727,40 +726,12 @@ export function DashboardRouteLayout() {
                 selectedItemId={linkFilter?.sourceItemId ?? null}
                 linkSourceType={linkFilter?.sourceType ?? null}
                 onItemClick={filterMode === 'search' ? undefined : handleItemClick}
-                onTitleClick={() => setCategoryModalType(type)}
+                onTitleClick={() => navigate(`/dashboard/stream/${encodeURIComponent(type)}`)}
               />
             </div>
           ))
         )}
       </div>
-
-      <StreamCategoryModal
-        type={categoryModalType}
-        open={categoryModalType !== null}
-        onOpenChange={(open) => {
-          if (!open) setCategoryModalType(null)
-        }}
-        items={categoryModalType ? streamItems[categoryModalType] || [] : []}
-        totalCount={categoryModalType ? (streamTotalCounts[categoryModalType] ?? 0) : 0}
-        loading={categoryModalType ? (streamLoading[categoryModalType] ?? false) : false}
-        loadingMore={categoryModalType ? (streamLoadingMore[categoryModalType] ?? false) : false}
-        localHasMore={categoryModalType ? (streamHasMore[categoryModalType] ?? false) : false}
-        showBackfillButton={
-          !!categoryModalType &&
-          !(streamHasMore[categoryModalType] ?? false) &&
-          streamUpstreamHasMore[categoryModalType] !== false
-        }
-        onLoadMore={() => {
-          if (!categoryModalType) return
-          if (!(streamHasMore[categoryModalType] ?? false)) return
-          void loadStreamData(categoryModalType, true)
-        }}
-        onBackfill={() => {
-          if (categoryModalType) void handleBackfill(categoryModalType)
-        }}
-        onItemClick={handleItemClick}
-        selectedItemId={linkFilter?.sourceItemId ?? null}
-      />
     </div>
   )
 

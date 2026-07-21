@@ -257,3 +257,32 @@ export async function cancelXStreamInit(): Promise<void> {
   const data = (await res.json().catch(() => ({}))) as { error?: string; detail?: string };
   if (!res.ok) throw new Error(xstreamAdminError(data, "取消失败", res.status));
 }
+
+export interface WordCloudStopwords {
+  version: number;
+  words: string[];
+}
+
+export async function fetchWordCloudStopwords(): Promise<WordCloudStopwords> {
+  const res = await fetch("/api/admin/wordcloud/stopwords", authFetchInit({ headers: authHeaders() }));
+  const data = (await res.json().catch(() => ({}))) as { detail?: string; error?: string } & Partial<WordCloudStopwords>;
+  if (!res.ok) throw new Error(data.detail || data.error || `加载停用词失败 (${res.status})`);
+  return {
+    version: data.version ?? 1,
+    words: Array.isArray(data.words) ? data.words : [],
+  };
+}
+
+export async function saveWordCloudStopwords(payload: WordCloudStopwords): Promise<WordCloudStopwords> {
+  const res = await fetch("/api/admin/wordcloud/stopwords", authFetchInit({
+    method: "PUT",
+    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  }));
+  const data = (await res.json().catch(() => ({}))) as { detail?: string; error?: string } & Partial<WordCloudStopwords>;
+  if (!res.ok) throw new Error(data.detail || data.error || `保存停用词失败 (${res.status})`);
+  return {
+    version: data.version ?? payload.version,
+    words: Array.isArray(data.words) ? data.words : payload.words,
+  };
+}

@@ -2,7 +2,11 @@ package dashboard
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"log/slog"
+	"os"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
@@ -24,7 +28,8 @@ var (
 	latinWordRe = regexp.MustCompile(`[a-zA-Z]{2,}`)
 )
 
-var englishStopwords = map[string]struct{}{
+// builtinStopwords are always merged with the JSON file list for filtering.
+var builtinStopwords = map[string]struct{}{
 	"the": {}, "and": {}, "for": {}, "are": {}, "but": {}, "not": {}, "you": {}, "all": {},
 	"can": {}, "had": {}, "her": {}, "was": {}, "one": {}, "our": {}, "out": {}, "has": {},
 	"his": {}, "how": {}, "its": {}, "may": {}, "new": {}, "now": {}, "old": {}, "see": {},
@@ -35,14 +40,19 @@ var englishStopwords = map[string]struct{}{
 	"more": {}, "also": {}, "just": {}, "only": {}, "some": {}, "such": {}, "them": {},
 	"then": {}, "there": {}, "these": {}, "those": {}, "through": {}, "under": {}, "while": {},
 	"amp": {}, "gt": {}, "lt": {}, "quot": {}, "nbsp": {}, "ndash": {},
-}
-
-var noisePatterns = map[string]struct{}{
+	"of": {}, "to": {}, "on": {}, "in": {}, "is": {}, "a": {}, "an": {}, "be": {}, "as": {},
+	"at": {}, "by": {}, "or": {}, "if": {}, "it": {}, "so": {}, "no": {}, "do": {}, "we": {},
+	"he": {}, "me": {}, "my": {}, "up": {},
 	"https": {}, "http": {}, "com": {}, "www": {}, "html": {}, "co": {},
 	"tco": {}, "twitter": {}, "xcom": {}, "htm": {}, "php": {}, "asp": {},
 	"js": {}, "css": {}, "png": {}, "jpg": {}, "jpeg": {}, "gif": {},
 	"pdf": {}, "doc": {}, "docx": {}, "txt": {}, "xml": {}, "json": {},
 	"org": {}, "net": {}, "gov": {}, "edu": {}, "mil": {}, "int": {},
+	"的": {}, "了": {}, "在": {}, "是": {}, "和": {}, "与": {}, "及": {}, "或": {}, "等": {},
+	"这": {}, "那": {}, "有": {}, "被": {}, "把": {}, "从": {}, "到": {}, "为": {}, "也": {},
+	"就": {}, "都": {}, "而": {}, "但": {}, "可以": {}, "一个": {}, "没有": {}, "什么": {},
+	"怎么": {}, "这个": {}, "那个": {}, "我们": {}, "他们": {}, "你们": {}, "自己": {},
+	"因为": {}, "所以": {}, "如果": {}, "但是": {},
 }
 
 type WordCloudGroup string
@@ -70,38 +80,76 @@ type WordCloudResult struct {
 	GeneratedAt string          `json:"generatedAt"`
 }
 
+// StopwordsFile is the on-disk / API shape for editable stopwords.
+type StopwordsFile struct {
+	Version int      `json:"version"`
+	Words   []string `json:"words"`
+}
+
 type wordCloudCacheEntry struct {
 	result    WordCloudResult
 	expiresAt time.Time
 }
 
 type WordCloudService struct {
-	xstreamRepo *persistence.XStreamRepository
-	segmenter   gse.Segmenter
-	mu          sync.Mutex
-	cache       *wordCloudCacheEntry
+	xstreamRepo    *persistence.XStreamRepository
+	segmenter      gse.Segmenter
+	stopwordsPath  string
+	mu             sync.Mutex
+	cache          map[string]*wordCloudCacheEntry // keyed by item type; "" = global
+	fileStopwords  map[string]struct{}
+	fileVersion    int
+	fileWordsOrder []string // preserved order from JSON for admin GET
 }
 
-func NewWordCloudService(xstreamRepo *persistence.XStreamRepository) *WordCloudService {
+func NewWordCloudService(xstreamRepo *persistence.XStreamRepository, stopwordsPath string) *WordCloudService {
 	var seg gse.Segmenter
 	if err := seg.LoadDictEmbed("zh"); err != nil {
 		slog.Warn("[WordCloud] LoadDictEmbed zh failed, using default", slog.String("error", err.Error()))
 		_ = seg.LoadDict()
 	}
 	_ = seg.LoadStopEmbed()
-	return &WordCloudService{xstreamRepo: xstreamRepo, segmenter: seg}
+	s := &WordCloudService{
+		xstreamRepo:   xstreamRepo,
+		segmenter:     seg,
+		stopwordsPath: strings.TrimSpace(stopwordsPath),
+		cache:         make(map[string]*wordCloudCacheEntry),
+		fileStopwords: make(map[string]struct{}),
+		fileVersion:   1,
+	}
+	if err := s.reloadStopwords(); err != nil {
+		slog.Warn("[WordCloud] load stopwords failed, using builtin only",
+			slog.String("path", s.stopwordsPath),
+			slog.String("error", err.Error()),
+		)
+	}
+	return s
 }
 
-func (s *WordCloudService) Generate(ctx context.Context, refresh bool) (WordCloudResult, error) {
+func (s *WordCloudService) StopwordsPath() string {
+	return s.stopwordsPath
+}
+
+// Generate builds a word cloud for the last 24h. itemType filters stream type; empty = all.
+// refresh clears that type's cache and reloads stopwords from disk.
+func (s *WordCloudService) Generate(ctx context.Context, refresh bool, itemType string) (WordCloudResult, error) {
 	_ = ctx
+	itemType = strings.TrimSpace(itemType)
+
 	if refresh {
+		if err := s.reloadStopwords(); err != nil {
+			slog.Warn("[WordCloud] reload stopwords on refresh failed",
+				slog.String("error", err.Error()),
+			)
+		}
 		s.mu.Lock()
-		s.cache = nil
+		delete(s.cache, itemType)
 		s.mu.Unlock()
 	}
+
 	s.mu.Lock()
-	if s.cache != nil && time.Now().Before(s.cache.expiresAt) {
-		r := s.cache.result
+	if entry, ok := s.cache[itemType]; ok && time.Now().Before(entry.expiresAt) {
+		r := entry.result
 		s.mu.Unlock()
 		return r, nil
 	}
@@ -111,13 +159,14 @@ func (s *WordCloudService) Generate(ctx context.Context, refresh bool) (WordClou
 		return WordCloudResult{}, nil
 	}
 
-	contents, err := s.xstreamRepo.ListContentSince24h(wordCloudMaxRows)
+	contents, err := s.xstreamRepo.ListContentSince24h(wordCloudMaxRows, itemType)
 	if err != nil {
 		return WordCloudResult{}, err
 	}
 
 	slog.Info("[WordCloud] loaded contents from database",
 		slog.Int("count", len(contents)),
+		slog.String("type", itemType),
 	)
 
 	freq := s.countWords(contents)
@@ -130,12 +179,151 @@ func (s *WordCloudService) Generate(ctx context.Context, refresh bool) (WordClou
 	}
 
 	s.mu.Lock()
-	s.cache = &wordCloudCacheEntry{result: result, expiresAt: time.Now().Add(wordCloudCacheTTL)}
+	s.cache[itemType] = &wordCloudCacheEntry{result: result, expiresAt: time.Now().Add(wordCloudCacheTTL)}
 	s.mu.Unlock()
 
 	return result, nil
 }
 
+// GetStopwords returns the editable stopwords document (file contents, or builtin defaults if missing).
+func (s *WordCloudService) GetStopwords() StopwordsFile {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if len(s.fileWordsOrder) > 0 {
+		words := make([]string, len(s.fileWordsOrder))
+		copy(words, s.fileWordsOrder)
+		return StopwordsFile{Version: s.fileVersion, Words: words}
+	}
+	return StopwordsFile{Version: 1, Words: builtinStopwordsSorted()}
+}
+
+// SaveStopwords writes the full stopwords table to disk, reloads, and clears all caches.
+func (s *WordCloudService) SaveStopwords(words []string) (StopwordsFile, error) {
+	if s.stopwordsPath == "" {
+		return StopwordsFile{}, errors.New("stopwords path not configured")
+	}
+	normalized := normalizeStopwords(words)
+	doc := StopwordsFile{Version: 1, Words: normalized}
+
+	data, err := json.MarshalIndent(doc, "", "  ")
+	if err != nil {
+		return StopwordsFile{}, err
+	}
+	data = append(data, '\n')
+
+	if err := os.MkdirAll(filepath.Dir(s.stopwordsPath), 0o755); err != nil {
+		return StopwordsFile{}, err
+	}
+	tmp := s.stopwordsPath + ".tmp"
+	if err := os.WriteFile(tmp, data, 0o644); err != nil {
+		return StopwordsFile{}, err
+	}
+	if err := os.Rename(tmp, s.stopwordsPath); err != nil {
+		_ = os.Remove(tmp)
+		return StopwordsFile{}, err
+	}
+
+	s.mu.Lock()
+	s.applyStopwordsLocked(doc)
+	s.cache = make(map[string]*wordCloudCacheEntry)
+	s.mu.Unlock()
+
+	slog.Info("[WordCloud] stopwords saved",
+		slog.String("path", s.stopwordsPath),
+		slog.Int("count", len(normalized)),
+	)
+	return doc, nil
+}
+
+// ClearCache drops all type-keyed wordcloud caches.
+func (s *WordCloudService) ClearCache() {
+	s.mu.Lock()
+	s.cache = make(map[string]*wordCloudCacheEntry)
+	s.mu.Unlock()
+}
+
+func (s *WordCloudService) reloadStopwords() error {
+	if s.stopwordsPath == "" {
+		return errors.New("empty stopwords path")
+	}
+	data, err := os.ReadFile(s.stopwordsPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			s.mu.Lock()
+			s.fileStopwords = make(map[string]struct{})
+			s.fileWordsOrder = nil
+			s.fileVersion = 1
+			s.mu.Unlock()
+			return nil
+		}
+		return err
+	}
+	var doc StopwordsFile
+	if err := json.Unmarshal(data, &doc); err != nil {
+		return err
+	}
+	if doc.Version == 0 {
+		doc.Version = 1
+	}
+	doc.Words = normalizeStopwords(doc.Words)
+	s.mu.Lock()
+	s.applyStopwordsLocked(doc)
+	s.mu.Unlock()
+	return nil
+}
+
+func (s *WordCloudService) applyStopwordsLocked(doc StopwordsFile) {
+	m := make(map[string]struct{}, len(doc.Words))
+	order := make([]string, 0, len(doc.Words))
+	for _, w := range doc.Words {
+		if _, ok := m[w]; ok {
+			continue
+		}
+		m[w] = struct{}{}
+		order = append(order, w)
+	}
+	s.fileStopwords = m
+	s.fileWordsOrder = order
+	s.fileVersion = doc.Version
+}
+
+func normalizeStopwords(words []string) []string {
+	seen := make(map[string]struct{}, len(words))
+	out := make([]string, 0, len(words))
+	for _, raw := range words {
+		w := strings.TrimSpace(raw)
+		if w == "" {
+			continue
+		}
+		if isASCIIWord(w) {
+			w = strings.ToLower(w)
+		}
+		if _, ok := seen[w]; ok {
+			continue
+		}
+		seen[w] = struct{}{}
+		out = append(out, w)
+	}
+	return out
+}
+
+func isASCIIWord(w string) bool {
+	for _, r := range w {
+		if r > unicode.MaxASCII {
+			return false
+		}
+	}
+	return true
+}
+
+func builtinStopwordsSorted() []string {
+	out := make([]string, 0, len(builtinStopwords))
+	for w := range builtinStopwords {
+		out = append(out, w)
+	}
+	sort.Strings(out)
+	return out
+}
 
 // countWords 统计词频并分类
 type wordFreq struct {
@@ -153,7 +341,7 @@ func (s *WordCloudService) countWords(contents []string) map[string]wordFreq {
 		// Latin words
 		for _, w := range latinWordRe.FindAllString(text, -1) {
 			w = strings.ToLower(w)
-			if len(w) < 2 || isStopword(w) || isNoisePattern(w) {
+			if len(w) < 2 || s.isFiltered(w) {
 				continue
 			}
 			f := freq[w]
@@ -164,7 +352,7 @@ func (s *WordCloudService) countWords(contents []string) map[string]wordFreq {
 		// Chinese tokens
 		for _, w := range s.segmenter.CutSearch(text, true) {
 			w = strings.TrimSpace(w)
-			if !isValidChineseToken(w) {
+			if !isValidChineseToken(w) || s.isFiltered(w) {
 				continue
 			}
 			f := freq[w]
@@ -176,18 +364,14 @@ func (s *WordCloudService) countWords(contents []string) map[string]wordFreq {
 	return freq
 }
 
-func isNoisePattern(w string) bool {
-	if _, ok := noisePatterns[w]; ok {
+func (s *WordCloudService) isFiltered(w string) bool {
+	if _, ok := builtinStopwords[w]; ok {
 		return true
 	}
-	return false
-}
-
-func isStopword(w string) bool {
-	if _, ok := englishStopwords[w]; ok {
-		return true
-	}
-	return false
+	s.mu.Lock()
+	_, ok := s.fileStopwords[w]
+	s.mu.Unlock()
+	return ok
 }
 
 func isValidChineseToken(w string) bool {

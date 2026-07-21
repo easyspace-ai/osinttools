@@ -1,4 +1,4 @@
-import { Q as f } from "./main-DrzwT8HI.js";
+import { Q as f } from "./main-Bcy9l3UX.js";
 const p = "/api/studio/ohmyppt";
 async function c(t, e) {
   const s = new Headers(e == null ? void 0 : e.headers);
