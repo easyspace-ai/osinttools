@@ -25,7 +25,7 @@ backend:
 
 backend-liunx:
 	mkdir -p "$(BIN)"
-	cd "$(BACKEND)" &&  CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -o "$(SERVER_BIN)" ./cmd/server
+	cd "$(BACKEND)" &&  CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -trimpath -o "$(SERVER_BIN)" ./cmd/server
 
 
 clean:
