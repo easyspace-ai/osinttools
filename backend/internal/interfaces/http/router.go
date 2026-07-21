@@ -367,7 +367,10 @@ func staticRoot() string {
 	return staticRootVal
 }
 
-// serveSPA 为 SPA 应用提供前端文件服务
+// serveSPA 为 SPA 应用提供前端文件服务。
+// 真实存在的静态文件直接返回；路由类路径回退到 index.html。
+// 对缺失的静态资源（/assets/* 或带静态扩展名）返回 404，禁止回退 HTML——
+// 否则浏览器会把 text/html 当 module script 加载，出现空白页与 MIME 报错。
 func serveSPA(c *gin.Context) {
 	root := staticRoot()
 	rel := strings.TrimPrefix(c.Request.URL.Path, "/")
@@ -380,5 +383,24 @@ func serveSPA(c *gin.Context) {
 		c.File(candidate)
 		return
 	}
+	if isStaticAssetRequest(c.Request.URL.Path) {
+		c.AbortWithStatus(http.StatusNotFound)
+		return
+	}
 	c.File(filepath.Join(root, "index.html"))
+}
+
+// isStaticAssetRequest 判断是否为前端构建产物路径（缺失时应 404，而非 SPA fallback）。
+func isStaticAssetRequest(p string) bool {
+	if strings.HasPrefix(p, "/assets/") || strings.HasPrefix(p, "assets/") {
+		return true
+	}
+	switch strings.ToLower(filepath.Ext(p)) {
+	case ".js", ".mjs", ".cjs", ".css", ".map", ".wasm",
+		".svg", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico",
+		".woff", ".woff2", ".ttf", ".eot":
+		return true
+	default:
+		return false
+	}
 }
