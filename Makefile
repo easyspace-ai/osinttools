@@ -19,18 +19,17 @@ frontend:
 	mkdir -p "$(BIN)"
 	cd "$(FRONTEND)" && pnpm install && NODE_OPTIONS=--max-old-space-size=8192 pnpm run build
 
+# backend:
+# 	mkdir -p "$(BIN)"
+# 	cd "$(BACKEND)" &&  CGO_ENABLED=1 go build -trimpath -o "$(SERVER_BIN)" ./cmd/server
+
 backend:
 	mkdir -p "$(BIN)"
-	cd "$(BACKEND)" &&  CGO_ENABLED=1 go build -trimpath -o "$(SERVER_BIN)" ./cmd/server
+	cd "$(BACKEND)" && CGO_ENABLED=1 go build -trimpath -o "$(SERVER_BIN)" ./cmd/server
 
 backend-liunx:
 	mkdir -p "$(BIN)"
-	docker run --rm --platform linux/amd64 \
-		-v "$(BACKEND)":/src \
-		-v "$(BIN)":/out \
-		-w /src \
-		golang:1.25-bookworm \
-		bash -c "apt-get update -qq && apt-get install -y -qq gcc > /dev/null 2>&1 && CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -trimpath -o /out/server ./cmd/server"
+	cd "$(BACKEND)" && CC="zig cc -target x86_64-linux-musl" CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -trimpath -o "$(SERVER_BIN)" ./cmd/server
 
 
 clean:
